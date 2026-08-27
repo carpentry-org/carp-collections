@@ -1,0 +1,260 @@
+(use Array)
+(use Maybe)
+
+(doc Stack
+  "is a robust, generic stack data structure implemented as a wrapper around an Array.
+
+### Design Philosophy
+The Stack module follows a systems-oriented design:
+1. **Inspection/Query**: Operations like `peek` and `find` return `Maybe` types to handle empty or missing states gracefully.
+2. **Mutation with Invariants**: Primitives like `dup!` and `swap!` enforce stack invariants (e.g. minimum depth) and will call `panic!` on violation.
+3. **Fast Path**: `unsafe-` variants are provided for performance-critical code where the caller guarantees invariants are met.")
+(deftype (Stack t) [data (Array t)])
+
+(defmodule Stack
+  (defn- panic! [msg] (do (IO.println &(str* "Error: " msg)) (System.exit 1)))
+
+  ;; --- Unsafe Primitives (Fast Path) ---
+
+  (doc unsafe-swap! "swaps the top two elements without bounds checking.")
+  (defn unsafe-swap! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (Array.swap! d (dec len) (- len 2))))
+
+  (doc unsafe-dup! "duplicates the top element without bounds checking.")
+  (defn unsafe-dup! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (Array.push-back! d @(Array.unsafe-nth d (dec len)))))
+
+  (doc unsafe-drop! "removes the top element without bounds checking.")
+  (defn unsafe-drop! [s] (ignore (Array.pop-back! (Stack.data s))))
+
+  (doc unsafe-over!
+    "pushes a copy of the second element from the top without bounds checking.")
+  (defn unsafe-over! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (Array.push-back! d @(Array.unsafe-nth d (- len 2)))))
+
+  (doc unsafe-rot! "rotates the top three elements without bounds checking.")
+  (defn unsafe-rot! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (do
+        (Array.swap! d (- len 3) (- len 2))
+        (Array.swap! d (- len 2) (- len 1)))))
+
+  (doc unsafe-nip!
+    "removes the second element from the top without bounds checking.")
+  (defn unsafe-nip! [s] (do (Stack.unsafe-swap! s) (Stack.unsafe-drop! s)))
+
+  (doc unsafe-tuck!
+    "inserts a copy of the top element below the second element from the top without bounds checking.")
+  (defn unsafe-tuck! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (do
+        ;; We push a copy of the top, then swap it with the old second element.
+        ;; The indices (- len 1) and (- len 2) correctly address the old top 
+        ;; and old second positions in the new (len + 1) array.
+        (Array.push-back! d @(Array.unsafe-nth d (dec len)))
+        (Array.swap! d (- len 1) (- len 2)))))
+
+  ;; --- Core API ---
+
+  (doc new "creates a new, empty Stack.")
+  (defn new [] (Stack.init []))
+
+  (doc zero "returns an empty stack.")
+  (defn zero [] (Stack.new))
+  (implements zero Stack.zero)
+
+  (doc push! "pushes a value onto the stack.")
+  (defn push! [s val] (Array.push-back! (Stack.data s) val))
+
+  (doc pop!
+    "removes and returns the top element of the stack wrapped in a Maybe.")
+  (defn pop! [s]
+    (let [d (Stack.data s)]
+      (if (Array.empty? d) (Maybe.Nothing) (Maybe.Just (Array.pop-back! d)))))
+
+  (doc peek "returns a copy of the top element of the stack wrapped in a Maybe.")
+  (defn peek [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (if (= len 0) (Maybe.Nothing) (Maybe.Just @(Array.unsafe-nth d (dec len))))))
+
+  (doc length "returns the number of elements in the stack.")
+  (defn length [s] (Array.length (Stack.data s)))
+
+  (doc empty? "checks whether the stack is empty.")
+  (defn empty? [s] (Array.empty? (Stack.data s)))
+  (implements empty? Stack.empty?)
+
+  (doc clear! "removes all elements from the stack.")
+  (defn clear! [s] (Stack.set-data! s []))
+
+  (doc copy "creates a copy of the stack.")
+  (defn copy [s] (Stack.init (Array.copy (Stack.data s))))
+  (implements copy Stack.copy)
+
+  (doc from-array "creates a stack by taking ownership of the provided array.")
+  (defn from-array [arr] (Stack.init arr))
+
+  (doc to-array "returns a copy of the underlying array.")
+  (defn to-array [s] @(Stack.data s))
+
+  (doc swap!
+    "swaps the top two elements of the stack. Panics if there are fewer than two elements.")
+  (defn swap! [s]
+    (let [len (Stack.length s)]
+      (if (< len 2)
+        (Stack.panic! "Stack.swap! called on stack with fewer than 2 elements")
+        (unsafe-swap! s))))
+
+  (doc dup!
+    "duplicates the top element of the stack. Panics if the stack is empty.")
+  (defn dup! [s]
+    (if (Stack.empty? s)
+      (Stack.panic! "Stack.dup! called on empty stack")
+      (unsafe-dup! s)))
+
+  (doc drop!
+    "removes the top element of the stack. Panics if the stack is empty.")
+  (defn drop! [s]
+    (if (Stack.empty? s)
+      (Stack.panic! "Stack.drop! called on empty stack")
+      (unsafe-drop! s)))
+
+  (doc over!
+    "pushes a copy of the second element from the top onto the stack. Panics if there are fewer than two elements.")
+  (defn over! [s]
+    (if (< (Stack.length s) 2)
+      (Stack.panic! "Stack.over! called on stack with fewer than 2 elements")
+      (unsafe-over! s)))
+
+  (doc rot!
+    "rotates the top three elements of the stack (x1 x2 x3 -- x2 x3 x1). Panics if there are fewer than three elements.")
+  (defn rot! [s]
+    (if (< (Stack.length s) 3)
+      (Stack.panic! "Stack.rot! called on stack with fewer than 3 elements")
+      (unsafe-rot! s)))
+
+  (doc nip!
+    "removes the second element from the top. Panics if there are fewer than two elements.")
+  (defn nip! [s]
+    (if (< (Stack.length s) 2)
+      (Stack.panic! "Stack.nip! called on stack with fewer than 2 elements")
+      (unsafe-nip! s)))
+
+  (doc tuck!
+    "inserts a copy of the top element below the second element from the top (x1 x2 -- x2 x1 x2). Panics if there are fewer than two elements.")
+  (defn tuck! [s]
+    (if (< (Stack.length s) 2)
+      (Stack.panic! "Stack.tuck! called on stack with fewer than 2 elements")
+      (unsafe-tuck! s)))
+
+  (doc peek-ptr
+    "returns a pointer to the top element of the stack wrapped in a Maybe.
+  
+### Safety
+The returned pointer may become invalid after any mutation that reallocates the underlying array (e.g. `push!`, `push-all!`, `extend!`, `dup!`, `over!`, `tuck!`).")
+  (defn peek-ptr [s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (if (= len 0)
+        (Maybe.Nothing)
+        (Maybe.Just (Pointer.address (Array.unsafe-nth d (dec len)))))))
+
+  (doc push-all! "pushes all elements from an array onto the stack.")
+  (defn push-all! [s arr]
+    (let [d (Stack.data s)
+          len (Array.length arr)]
+      (for [i 0 len] (Array.push-back! d @(Array.unsafe-nth arr i)))))
+
+  (doc any? "checks if any element in the stack satisfies the predicate f.")
+  (defn any? [f s]
+    (let [d (Stack.data s)
+          len (Array.length d)
+          res false]
+      (do
+        (for [i 0 len]
+          (when (~f (Array.unsafe-nth d i)) (do (set! res true) (break))))
+        res)))
+
+  (doc all? "checks if all elements in the stack satisfy the predicate f.")
+  (defn all? [f s]
+    (let [d (Stack.data s)
+          len (Array.length d)
+          res true]
+      (do
+        (for [i 0 len]
+          (when (not (~f (Array.unsafe-nth d i))) (do (set! res false) (break))))
+        res)))
+
+  (doc contains? "checks if the stack contains an element el.")
+  (defn contains? [s el] (Array.contains? (Stack.data s) el))
+
+  (doc find
+    "finds the first element in the stack that satisfies the predicate f and wraps it in a Maybe.Just. Returns Maybe.Nothing if no element matches.")
+  (defn find [f s] (Array.find f (Stack.data s)))
+
+  (doc find-index
+    "finds the index of the first element in the stack that satisfies the predicate f and wraps it in a Maybe.Just. Returns Maybe.Nothing if no element matches.")
+  (defn find-index [f s] (Array.find-index f (Stack.data s)))
+
+  (doc remove-at!
+    "removes the element at the specified index. Performs an O(n) copy of the underlying array.")
+  (defn remove-at! [s idx]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (if (and (>= idx 0) (< idx len))
+        (Stack.set-data! s (Array.remove-nth idx @d))
+        (Stack.panic! "Stack.remove-at! index out of bounds"))))
+
+  (doc reverse! "reverses the stack in place without allocating a new array.")
+  (defn reverse! [s]
+    (let [d (Stack.data s)
+          len (Array.length d)
+          i 0
+          j (dec len)]
+      ;; When len = 0, j = -1 and the loop condition (< 0 -1) is immediately false.
+      (while (< i j) (do (Array.swap! d i j) (set! i (inc i)) (set! j (dec j))))))
+
+  (doc extend!
+    "pushes all elements from another stack onto this stack. This is an alias for push-all!.")
+  (defn extend! [s other] (Stack.push-all! s (Stack.data other)))
+
+  (doc top-index
+    "returns the index of the top element wrapped in a Maybe. Returns Maybe.Nothing if the stack is empty.")
+  (defn top-index [s]
+    (let [len (Stack.length s)]
+      (if (= len 0) (Maybe.Nothing) (Maybe.Just (dec len)))))
+
+  (doc = "checks if two stacks are equal.")
+  (defn = [a b] (Array.= (Stack.data a) (Stack.data b)))
+  (implements = Stack.=)
+
+  (doc doall "iterates over the stack and calls a function f for each element.")
+  (defn doall [f s]
+    (let [d (Stack.data s)
+          len (Array.length d)]
+      (for [i 0 len] (~f (Array.unsafe-nth d i)))))
+
+  (doc reduce
+    "reduces the stack to a single value using a function f, starting with initial value acc.")
+  (defn reduce [f acc s] (Array.reduce f acc (Stack.data s)))
+
+  (doc map
+    "transforms the stack by applying a function f to each element, returning a new stack.")
+  (defn map [f s] (Stack.init (Array.copy-map f (Stack.data s))))
+
+  (doc filter
+    "returns a new stack containing only the elements that satisfy the predicate f.")
+  (defn filter [f s] (Stack.init (Array.copy-filter f (Stack.data s))))
+
+  (doc str "returns a string representation of the stack.")
+  (defn str [s] (str* "Stack(" (Array.str (Stack.data s)) ")"))
+  (implements str Stack.str))

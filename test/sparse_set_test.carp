@@ -1,0 +1,147 @@
+(load "Test.carp")
+(use Test)
+(load "sparse_set.carp")
+(use SparseSet)
+(use Uint32)
+(use Maybe)
+
+(deftest sparse-set-test
+  (let [s (the (SparseSet Int) (SparseSet.new))
+        state (Test.State.init 0 0)]
+    (do
+      (set! state
+            (assert-true &state
+              (SparseSet.empty? &s)
+              "SparseSet is empty initially"))
+      (set! state
+            (assert-equal &state
+              0
+              (SparseSet.length &s)
+              "SparseSet length is 0 initially"))
+
+      ;; Insertion
+      (SparseSet.insert! &s (Uint32.from-long 10l) 100)
+      (set! state
+            (assert-false &state
+              (SparseSet.empty? &s)
+              "SparseSet is not empty after insert"))
+      (set! state
+            (assert-equal &state
+              1
+              (SparseSet.length &s)
+              "SparseSet length is 1 after insert"))
+      (set! state
+            (assert-true &state
+              (SparseSet.contains? &s (Uint32.from-long 10l))
+              "SparseSet contains ID 10"))
+      (set! state
+            (assert-equal &state
+              &(Maybe.Just 100)
+              &(SparseSet.get &s (Uint32.from-long 10l))
+              "Get ID 10 returns 100"))
+
+      (SparseSet.insert! &s (Uint32.from-long 20l) 200)
+      (set! state
+            (assert-equal &state
+              2
+              (SparseSet.length &s)
+              "SparseSet length is 2 after second insert"))
+
+      ;; Update
+      (SparseSet.insert! &s (Uint32.from-long 10l) 150)
+      (set! state
+            (assert-equal &state
+              2
+              (SparseSet.length &s)
+              "SparseSet length remains 2 after update"))
+      (set! state
+            (assert-equal &state
+              &(Maybe.Just 150)
+              &(SparseSet.get &s (Uint32.from-long 10l))
+              "Get ID 10 returns updated value 150"))
+
+      ;; Removal
+      (SparseSet.remove! &s (Uint32.from-long 10l))
+      (set! state
+            (assert-equal &state
+              1
+              (SparseSet.length &s)
+              "SparseSet length is 1 after remove"))
+      (set! state
+            (assert-false &state
+              (SparseSet.contains? &s (Uint32.from-long 10l))
+              "SparseSet no longer contains ID 10"))
+      (set! state
+            (assert-true &state
+              (SparseSet.contains? &s (Uint32.from-long 20l))
+              "SparseSet still contains ID 20"))
+
+      ;; Automatic Growth (Sparse)
+      (SparseSet.insert! &s (Uint32.from-long 100l) 1000)
+      (set! state
+            (assert-true &state
+              (>= (SparseSet.sparse-capacity &s) 100)
+              "Sparse array grew automatically"))
+      (set! state
+            (assert-equal &state
+              &(Maybe.Just 1000)
+              &(SparseSet.get &s (Uint32.from-long 100l))
+              "Get ID 100 works after growth"))
+
+      ;; Clear
+      (SparseSet.clear! &s)
+      (set! state
+            (assert-true &state
+              (SparseSet.empty? &s)
+              "SparseSet is empty after clear!"))
+
+      ;; Functional
+      (let [s2 (the (SparseSet Int) (SparseSet.new))]
+        (do
+          (SparseSet.insert! &s2 (Uint32.from-long 1l) 10)
+          (SparseSet.insert! &s2 (Uint32.from-long 2l) 20)
+          (SparseSet.insert! &s2 (Uint32.from-long 3l) 30)
+
+          (set! state
+                (assert-equal &state
+                  60
+                  (SparseSet.reduce &(fn [acc x] (+ acc @x)) 0 &s2)
+                  "Reduce works"))
+          (set! state
+                (assert-true &state
+                  (SparseSet.any? &(fn [x] (= @x 20)) &s2)
+                  "any? works (positive)"))
+          (set! state
+                (assert-false &state
+                  (SparseSet.any? &(fn [x] (= @x 40)) &s2)
+                  "any? works (negative)"))
+          (set! state
+                (assert-true &state
+                  (SparseSet.all? &(fn [x] (> @x 0)) &s2)
+                  "all? works (positive)"))
+          (set! state
+                (assert-false &state
+                  (SparseSet.all? &(fn [x] (> @x 15)) &s2)
+                  "all? works (negative)"))
+
+          (SparseSet.with-ptr &s2
+                              (Uint32.from-long 1l)
+                              &(fn [ptr] (Pointer.set ptr 15)))
+          (set! state
+                (assert-equal &state
+                  &(Maybe.Just 15)
+                  &(SparseSet.get &s2 (Uint32.from-long 1l))
+                  "with-ptr allows mutation"))
+
+          (set! state
+                (assert-equal &state
+                  &(Maybe.Just (Uint32.from-long 2l))
+                  &(SparseSet.id-at-idx &s2 1)
+                  "id-at-idx works"))
+          (set! state
+                (assert-equal &state
+                  &(Maybe.Just 20)
+                  &(SparseSet.value-at-idx &s2 1)
+                  "value-at-idx works"))))
+
+      state)))

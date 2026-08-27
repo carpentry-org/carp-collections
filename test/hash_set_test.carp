@@ -1,0 +1,138 @@
+(load "Test.carp")
+(use Test)
+(load "hash_set.carp")
+(use HashSet)
+
+(deftest hash-set-test
+  (let [s (HashSet.new)
+        state (Test.State.init 0 0)]
+    (do
+      (set! state
+            (assert-true &state (HashSet.empty? &s) "HashSet is empty initially"))
+      (set! state
+            (assert-equal &state
+              0
+              (HashSet.length &s)
+              "HashSet length is 0 initially"))
+
+      (HashSet.insert! &s &10)
+      (set! state
+            (assert-false &state
+              (HashSet.empty? &s)
+              "HashSet is not empty after insert"))
+      (set! state
+            (assert-equal &state
+              1
+              (HashSet.length &s)
+              "HashSet length is 1 after insert"))
+      (set! state
+            (assert-true &state
+              (HashSet.contains? &s &10)
+              "HashSet contains inserted element"))
+
+      (HashSet.insert! &s &20)
+      (set! state
+            (assert-equal &state
+              2
+              (HashSet.length &s)
+              "HashSet length is 2 after second insert"))
+
+      (HashSet.insert! &s &10)
+      (set! state
+            (assert-equal &state
+              2
+              (HashSet.length &s)
+              "HashSet length remains 2 after duplicate insert"))
+
+      (HashSet.remove! &s &10)
+      (set! state
+            (assert-equal &state
+              1
+              (HashSet.length &s)
+              "HashSet length is 1 after remove"))
+      (set! state
+            (assert-false &state
+              (HashSet.contains? &s &10)
+              "HashSet no longer contains removed element"))
+
+      (HashSet.clear! &s)
+      (set! state
+            (assert-true &state
+              (HashSet.empty? &s)
+              "HashSet is empty after clear!"))
+
+      ;; Algebraic
+      (let [a (HashSet.from-array &[1 2 3])
+            b (HashSet.from-array &[3 4 5])
+            u (HashSet.union &a &b)
+            i (HashSet.intersection &a &b)
+            d (HashSet.difference &a &b)
+            sd (HashSet.symmetric-difference &a &b)]
+        (do
+          (set! state
+                (assert-equal &state 5 (HashSet.length &u) "Union length is 5"))
+          (set! state
+                (assert-true &state (HashSet.contains? &u &1) "Union contains 1"))
+          (set! state
+                (assert-true &state (HashSet.contains? &u &5) "Union contains 5"))
+
+          (set! state
+                (assert-equal &state
+                  1
+                  (HashSet.length &i)
+                  "Intersection length is 1"))
+          (set! state
+                (assert-true &state
+                  (HashSet.contains? &i &3)
+                  "Intersection contains 3"))
+
+          (set! state
+                (assert-equal &state
+                  2
+                  (HashSet.length &d)
+                  "Difference (a - b) length is 2"))
+          (set! state
+                (assert-true &state
+                  (HashSet.contains? &d &1)
+                  "Difference contains 1"))
+          (set! state
+                (assert-true &state
+                  (HashSet.contains? &d &2)
+                  "Difference contains 2"))
+
+          (set! state
+                (assert-equal &state
+                  4
+                  (HashSet.length &sd)
+                  "Symmetric difference length is 4"))
+          (set! state
+                (assert-true &state
+                  (HashSet.contains? &sd &1)
+                  "Symmetric difference contains 1"))
+          (set! state
+                (assert-true &state
+                  (HashSet.contains? &sd &4)
+                  "Symmetric difference contains 4"))))
+
+      ;; Equality
+      (let [s1 (HashSet.from-array &[10 20])
+            s2 (HashSet.from-array &[20 10])
+            s3 (HashSet.from-array &[10 30])]
+        (do
+          (set! state
+                (assert-true &state
+                  (HashSet.= &s1 &s2)
+                  "Sets with same elements are equal"))
+          (set! state
+                (assert-false &state
+                  (HashSet.= &s1 &s3)
+                  "Sets with different elements are unequal"))))
+
+      ;; String
+      (let [ss (HashSet.from-array &[1])]
+        (set! state
+              (assert-true &state
+                (> (String.length &(HashSet.str &ss)) 0)
+                "HashSet.str returns non-empty string")))
+
+      state)))

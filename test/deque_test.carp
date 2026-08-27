@@ -1,0 +1,272 @@
+(load "Test.carp")
+(use Test)
+(load "deque.carp")
+(use Deque)
+
+(deftest deque-test
+  (let [dq (Deque.new)
+        state (Test.State.init 0 0)
+        s1 (assert-true &state (Deque.empty? &dq) "Deque is empty initially")
+        s2 (assert-equal &s1 0 (Deque.length &dq) "Deque length is 0 initially")
+        ;; Safe Ops on empty
+        s3 (assert-equal &s2
+          &(Maybe.Nothing)
+          &(Deque.pop-front! &dq)
+          "pop-front! on empty")
+        s4 (assert-equal &s3
+          &(Maybe.Nothing)
+          &(Deque.pop-back! &dq)
+          "pop-back! on empty")
+        s5 (assert-equal &s4
+          &(Maybe.Nothing)
+          &(Deque.peek-front &dq)
+          "peek-front on empty")
+        s6 (assert-equal &s5
+          &(Maybe.Nothing)
+          &(Deque.peek-back &dq)
+          "peek-back on empty")
+        s7 (assert-equal &s6
+          &(Maybe.Nothing)
+          &(Deque.nth &dq -1)
+          "nth negative index")
+        ;; with-capacity
+        dq_cap (the (Deque Int) (Deque.with-capacity 10))
+        s8 (assert-equal &s7
+          10
+          (Deque.capacity &dq_cap)
+          "with-capacity sets capacity")
+        s9 (assert-equal &s8
+          0
+          (Deque.length &dq_cap)
+          "with-capacity starts empty")
+        ;; push-back!
+        _p1 (Deque.push-back! &dq 10)
+        s10 (assert-false &s9
+          (Deque.empty? &dq)
+          "Deque is not empty after push-back")
+        s11 (assert-equal &s10
+          1
+          (Deque.length &dq)
+          "Deque length is 1 after push-back")
+        s12 (assert-equal &s11
+          &(Maybe.Just 10)
+          &(Deque.peek-front &dq)
+          "Peek-front returns correct value")
+        s13 (assert-equal &s12
+          &(Maybe.Just 10)
+          &(Deque.peek-back &dq)
+          "Peek-back returns correct value")
+        ;; push-front!
+        _p2 (Deque.push-front! &dq 20)
+        s14 (assert-equal &s13
+          2
+          (Deque.length &dq)
+          "Deque length is 2 after push-front")
+        s15 (assert-equal &s14
+          &(Maybe.Just 20)
+          &(Deque.peek-front &dq)
+          "Peek-front returns new front")
+        s16 (assert-equal &s15
+          &(Maybe.Just 10)
+          &(Deque.peek-back &dq)
+          "Peek-back returns old front")
+        ;; nth
+        s17 (assert-equal &s16 &(Maybe.Just 20) &(Deque.nth &dq 0) "nth 0 works")
+        s18 (assert-equal &s17 &(Maybe.Just 10) &(Deque.nth &dq 1) "nth 1 works")
+        s19 (assert-equal &s18
+          &(Maybe.Nothing)
+          &(Deque.nth &dq 2)
+          "nth out of bounds returns Nothing")
+        ;; pop-front!
+        val1 (Deque.pop-front! &dq)
+        s20 (assert-equal &s19
+          &(Maybe.Just 20)
+          &val1
+          "pop-front! returns correct value")
+        s21 (assert-equal &s20
+          1
+          (Deque.length &dq)
+          "Length decreased after pop-front!")
+        ;; pop-back!
+        val2 (Deque.pop-back! &dq)
+        s22 (assert-equal &s21
+          &(Maybe.Just 10)
+          &val2
+          "pop-back! returns correct value")
+        s23 (assert-true &s22 (Deque.empty? &dq) "Deque empty after all pops")
+        ;; Dynamic Growth
+        _pg (for [i 0 20] (Deque.push-back! &dq i))
+        s24 (assert-equal &s23 20 (Deque.length &dq) "Deque grows correctly")
+        s25 (assert-equal &s24
+          &(Maybe.Just 0)
+          &(Deque.peek-front &dq)
+          "Front preserved after growth")
+        s26 (assert-equal &s25
+          &(Maybe.Just 19)
+          &(Deque.peek-back &dq)
+          "Back preserved after growth")
+        ;; Unrolling verification
+        dq2 (Deque.with-capacity 4)
+        _u1 (Deque.push-back! &dq2 1)
+        _u2 (Deque.push-back! &dq2 2)
+        _u3 (Deque.push-front! &dq2 3)
+        _u4 (Deque.push-front! &dq2 4)
+        ; [4 3 1 2]
+        s27 (assert-equal &s26 4 (Deque.length &dq2) "Internal cap reached")
+        _u5 (Deque.push-back! &dq2 5)
+        ; triggers grow! and unroll
+        s28 (assert-equal &s27 5 (Deque.length &dq2) "Grows after unroll")
+        s29 (assert-equal &s28
+          &(Maybe.Just 4)
+          &(Deque.peek-front &dq2)
+          "Front correct after unroll")
+        s30 (assert-equal &s29
+          &(Maybe.Just 5)
+          &(Deque.peek-back &dq2)
+          "Back correct after unroll")
+        ;; Functional
+        sum (Deque.reduce &(fn [acc x] (+ acc @x)) 0 &dq2)
+        s31 (assert-equal &s30 15 sum "Reduce works")
+        dq3 (Deque.map &(fn [x] (* @x 2)) &dq2)
+        s32 (assert-equal &s31
+          &(Maybe.Just 8)
+          &(Deque.peek-front &dq3)
+          "Map works")
+        dq4 (Deque.filter &(fn [x] (> @x 3)) &dq2)
+        s33 (assert-equal &s32 2 (Deque.length &dq4) "Filter works")
+        ;; Predicates
+        s34 (assert-true &s33 (Deque.contains? &dq2 &3) "contains? works")
+        s35 (assert-true &s34 (Deque.any? &(fn [x] (= @x 5)) &dq2) "any? works")
+        s36 (assert-false &s35
+          (Deque.all? &(fn [x] (> @x 1)) &dq2)
+          "all? works (false)")
+        s37 (assert-true &s36
+          (Deque.all? &(fn [x] (> @x 0)) &dq2)
+          "all? works (true)")
+        ;; Standard
+        dq2_dup (Deque.copy &dq2)
+        s38 (assert-true &s37
+          (Deque.= &dq2 &dq2_dup)
+          "Equality works (independent copies)")
+        dq_diff (Deque.from-array [1 2 3])
+        s39 (assert-false &s38
+          (Deque.= &dq2 &dq_diff)
+          "Equality works (different)")
+        _cl (Deque.clear! &dq2)
+        s40 (assert-true &s39 (Deque.empty? &dq2) "Clear! works")
+        ;; New Ops
+        dq6 (Deque.from-array [1 2 3])
+        _rv (Deque.reverse! &dq6)
+        s41 (assert-equal &s40
+          &(Maybe.Just 3)
+          &(Deque.peek-front &dq6)
+          "Reverse! works (front)")
+        s42 (assert-equal &s41
+          &(Maybe.Just 1)
+          &(Deque.peek-back &dq6)
+          "Reverse! works (back)")
+        _rm (Deque.remove-at! &dq6 1)
+        ; [3 1]
+        s43 (assert-equal &s42 2 (Deque.length &dq6) "remove-at! works (length)")
+        s44 (assert-equal &s43
+          &(Maybe.Just 1)
+          &(Deque.peek-back &dq6)
+          "remove-at! works (data)")
+        dq7 (Deque.new)
+        _ex1 (Deque.extend! &dq7 &dq6)
+        s45 (assert-equal &s44 2 (Deque.length &dq7) "extend! works")
+        _ex2 (Deque.extend! &dq7 &(Deque.new))
+        s46 (assert-equal &s45 2 (Deque.length &dq7) "extend! with empty")
+        ;; str
+        s_str (Deque.str &dq7)
+        s47 (assert-true &s46
+          (> (String.length &s_str) 0)
+          "str returns non-empty")
+        ;; rotate
+        dq_rot (Deque.from-array [1 2 3])
+        _rl1 (Deque.rotate-left! &dq_rot 1)
+        ; [2 3 1]
+        s48 (assert-equal &s47
+          &(Maybe.Just 2)
+          &(Deque.peek-front &dq_rot)
+          "rotate-left! 1 (front)")
+        s48a (assert-equal &s48
+          &(Maybe.Just 1)
+          &(Deque.peek-back &dq_rot)
+          "rotate-left! 1 (back)")
+        _rl2 (Deque.rotate-left! &dq_rot 3)
+        ; [2 3 1] (no-op)
+        s48b (assert-equal &s48a
+          &(Maybe.Just 2)
+          &(Deque.peek-front &dq_rot)
+          "rotate-left! length (front)")
+        _rr (Deque.rotate-right! &dq_rot 1)
+        ; [1 2 3]
+        s49 (assert-equal &s48b
+          &(Maybe.Just 1)
+          &(Deque.peek-front &dq_rot)
+          "rotate-right! 1 (front)")
+        ;; swap!
+        _sw1 (Deque.swap! &dq_rot 0 2)
+        ; [3 2 1]
+        s50 (assert-equal &s49
+          &(Maybe.Just 3)
+          &(Deque.peek-front &dq_rot)
+          "swap! works (front)")
+        s51 (assert-equal &s50
+          &(Maybe.Just 1)
+          &(Deque.peek-back &dq_rot)
+          "swap! works (back)")
+        _sw2 (Deque.swap! &dq_rot 1 1)
+        ; [3 2 1] (no-op)
+        s51a (assert-equal &s51
+          &(Maybe.Just 2)
+          &(Deque.nth &dq_rot 1)
+          "swap! i==j works")
+        ;; find / find-index
+        s52 (assert-equal &s51a
+          &(Maybe.Just 2)
+          &(Deque.find &(fn [x] (= @x 2)) &dq_rot)
+          "find works")
+        s52a (assert-equal &s52
+          &(Maybe.Just 1)
+          &(Deque.find-index &(fn [x] (= @x 2)) &dq_rot)
+          "find-index works")
+        _rt (Deque.retain! &(fn [x] (> @x 1)) &dq_rot)
+        ; [3 2]
+        s53 (assert-equal &s52a
+          2
+          (Deque.length &dq_rot)
+          "retain! works (length)")
+        s54 (assert-false &s53
+          (Deque.contains? &dq_rot &1)
+          "retain! works (data)")
+        ;; shrink-to-fit!
+        _rs (Deque.reserve! &dq_rot 20)
+        s54a (assert-equal &s54 20 (Deque.capacity &dq_rot) "reserve! works")
+        _sh (Deque.shrink-to-fit! &dq_rot)
+        s55 (assert-equal &s54a
+          8
+          (Deque.capacity &dq_rot)
+          "shrink-to-fit! works (clamped at 8)")
+        ;; back-index
+        s56 (assert-equal &s55
+          &(Maybe.Just 1)
+          &(Deque.back-index &dq_rot)
+          "back-index works")
+        ;; Unsafe Primitives Verification
+        su (Deque.from-array [10 20 30])
+        s57 (assert-equal &s56 20 (Deque.unsafe-nth &su 1) "unsafe-nth works")
+        val_upf (Deque.unsafe-pop-front! &su)
+        s58 (assert-equal &s57 10 val_upf "unsafe-pop-front! works")
+        val_upb (Deque.unsafe-pop-back! &su)
+        s59 (assert-equal &s58 30 val_upb "unsafe-pop-back! works")
+        s60 (assert-equal &s59
+          20
+          (Deque.unsafe-peek-front &su)
+          "unsafe-peek-front works")
+        s61 (assert-equal &s60
+          20
+          (Deque.unsafe-peek-back &su)
+          "unsafe-peek-back works")]
+    s61))

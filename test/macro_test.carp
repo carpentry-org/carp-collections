@@ -1,0 +1,22 @@
+(load "Test.carp")
+(use Test)
+(load "bitflags.carp")
+(use BitFlags)
+
+;; By using eval on the macro call, we force immediate registration 
+;; of the symbols in the current compilation unit.
+(eval (bitflags [AutoA AutoB (AutoD 8) AutoE]))
+; 1, 2, 8, 16
+
+(deftest macro-purity-test
+  (let [state (Test.State.init 0 0)]
+    (do
+      (set! state (assert-equal &state 1 AutoA "Auto-incrementing AutoA is 1"))
+      (set! state (assert-equal &state 2 AutoB "Auto-incrementing AutoB is 2"))
+      (set! state (assert-equal &state 8 AutoD "Explicit (AutoD 8) works"))
+      (set! state
+            (assert-equal &state
+              16
+              AutoE
+              "Auto-incrementing after explicit works (AutoE 16)"))
+      state)))

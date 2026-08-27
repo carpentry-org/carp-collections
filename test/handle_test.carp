@@ -1,0 +1,64 @@
+(load "Test.carp")
+(use Test)
+(load "handle.carp")
+(use Handle)
+
+(deftest handle-test
+  (let [h1 (the (Handle Int)
+                (Handle.init (Uint64.from-long 10l) (Uint32.from-long 1l)))
+        h2 (the (Handle Int)
+                (Handle.init (Uint64.from-long 10l) (Uint32.from-long 1l)))
+        h3 (the (Handle Int)
+                (Handle.init (Uint64.from-long 10l) (Uint32.from-long 2l)))
+        h4 (the (Handle Int)
+                (Handle.init (Uint64.from-long 11l) (Uint32.from-long 1l)))
+        nul (the (Handle Int) (Handle.null))
+        state (Test.State.init 0 0)]
+    (do
+      (set! state
+            (assert-equal &state
+              (Uint64.from-long 10l)
+              (Handle.index &h1)
+              "Index is correct"))
+      (set! state
+            (assert-equal &state
+              (Uint32.from-long 1l)
+              (Handle.generation &h1)
+              "Generation is correct"))
+
+      (set! state
+            (assert-true &state
+              (= &h1 &h2)
+              "Handles with same index/gen are equal"))
+      (set! state
+            (assert-false &state
+              (= &h1 &h3)
+              "Handles with different gen are not equal"))
+      (set! state
+            (assert-false &state
+              (= &h1 &h4)
+              "Handles with different index are not equal"))
+
+      (set! state
+            (assert-true &state (Handle.null? &nul) "null handle is null?"))
+      (set! state
+            (assert-false &state
+              (Handle.not-null? &nul)
+              "null handle is not not-null?"))
+      (set! state
+            (assert-true &state
+              (Handle.not-null? &h1)
+              "normal handle is not-null?"))
+
+      (set! state
+            (assert-equal &state
+              &(str "h(10:1)")
+              &(Handle.str &h1)
+              "Handle.str format is correct"))
+      (set! state
+            (assert-equal &state
+              &(str "h(null)")
+              &(Handle.str &nul)
+              "Null Handle.str is correct"))
+
+      state)))

@@ -1,0 +1,136 @@
+(load "Test.carp")
+(use Test)
+(load "priority_queue.carp")
+(use PriorityQueue)
+(use Random)
+
+(deftest priority-queue-test
+  (let [pq (PriorityQueue.new)
+        state (Test.State.init 0 0)]
+    (let [s1 (assert-true &state (PriorityQueue.empty? &pq) "Queue starts empty")
+          s2 (assert-true &s1
+            (let [p (PriorityQueue.peek &pq)] (Maybe.nothing? &p))
+            "Peek on empty queue is Nothing")
+          ;; Test 2: Push elements (Max-Heap)
+          _ (do
+            (PriorityQueue.push! &pq 10 &IntRef.>)
+            (PriorityQueue.push! &pq 30 &IntRef.>)
+            (PriorityQueue.push! &pq 20 &IntRef.>))
+          s3 (assert-equal &s2
+            3
+            (PriorityQueue.length &pq)
+            "Length is 3 after 3 pushes")
+          s4 (assert-equal &s3
+            &(Maybe.Just 30)
+            &(PriorityQueue.peek &pq)
+            "Peek returns 30 (max)")
+          s5 (assert-true &s4
+            (PriorityQueue.valid? &pq &IntRef.>)
+            "Heap is valid after pushes")
+          ;; Test 3: pop!
+          s6 (assert-equal &s5
+            &(Maybe.Just 30)
+            &(PriorityQueue.pop! &pq &IntRef.>)
+            "pop! returns 30")
+          s7 (assert-equal &s6
+            2
+            (PriorityQueue.length &pq)
+            "Length is 2 after pop!")
+          ;; Test 4: pop-push! and push-pop!
+          res-pp (PriorityQueue.pop-push! &pq 5 &IntRef.>)
+          s8 (assert-equal &s7 &(Maybe.Just 20) &res-pp "pop-push! 5 returns 20")
+          s9 (assert-equal &s8
+            &(Maybe.Just 10)
+            &(PriorityQueue.peek &pq)
+            "pop-push! 5: 10 is now top")
+          res-p-pop (PriorityQueue.push-pop! &pq 100 &IntRef.>)
+          s10 (assert-equal &s9 100 res-p-pop "push-pop! 100 returns 100")
+          s11 (assert-equal &s10
+            &(Maybe.Just 10)
+            &(PriorityQueue.peek &pq)
+            "push-pop! 100: top is still 10")
+          ;; Test 5: update-top! (sink test)
+          _a (PriorityQueue.push! &pq 20 &IntRef.>)
+          ;; heap is [20 10 5]
+          _b (PriorityQueue.update-top! &pq &(fn [x] 2) &IntRef.>)
+          ;; 20 -> 2, should sink
+          s12 (assert-equal &s11
+            &(Maybe.Just 10)
+            &(PriorityQueue.peek &pq)
+            "update-top! (sink): 10 is now top")
+          s13 (assert-true &s12
+            (PriorityQueue.valid? &pq &IntRef.>)
+            "Heap valid after update-top! sink")
+          ;; Test 6: append! (non-empty merge)
+          pq2 (PriorityQueue.from-array [50 40] &IntRef.>)
+          _c (PriorityQueue.append! &pq &pq2 &IntRef.>)
+          s14 (assert-equal &s13
+            5
+            (PriorityQueue.length &pq)
+            "Length is 5 after append!")
+          s15 (assert-equal &s14
+            &(Maybe.Just 50)
+            &(PriorityQueue.peek &pq)
+            "append! merge: 50 is top")
+          s16 (assert-true &s15
+            (PriorityQueue.valid? &pq &IntRef.>)
+            "Heap valid after append! merge")
+          ;; Test 7: Round-trip (from-array -> into-sorted-array)
+          items [15 5 25 10 20]
+          pq3 (PriorityQueue.from-array items &IntRef.>)
+          sorted (PriorityQueue.into-sorted-array pq3 &IntRef.>)
+          s17 (assert-equal &s16
+            &(the (Array Int) [25 20 15 10 5])
+            &sorted
+            "Round-trip sorted correctly (descending)")
+          ;; Test 8: peek-ptr
+          _d (PriorityQueue.clear! &pq)
+          _e (PriorityQueue.push! &pq 42 &IntRef.>)
+          m-ptr (PriorityQueue.peek-ptr &pq)
+          s18 (assert-true &s17 (Maybe.just? &m-ptr) "peek-ptr returns Just")
+          s19 (assert-true &s18
+            (not (Long.= 0l (Pointer.to-long (Maybe.unsafe-from m-ptr))))
+            "peek-ptr is not null")
+          ;; Test 9: Stress Test (Random)
+          _f (do
+            (PriorityQueue.clear! &pq)
+            (for [i 0 100]
+              (PriorityQueue.push! &pq (Int.random-between 0 1000) &IntRef.>)))
+          s20 (assert-equal &s19
+            100
+            (PriorityQueue.length &pq)
+            "Stress test: 100 items pushed")
+          s21 (assert-true &s20
+            (PriorityQueue.valid? &pq &IntRef.>)
+            "Stress test: heap property maintained")
+          all-ordered (let [ordered true
+                            last-val 1001]
+            (do
+              (for [i 0 100]
+                (let [v (Maybe.unsafe-from (PriorityQueue.pop! &pq &IntRef.>))]
+                  (do
+                    (if (> v last-val) (set! ordered false) ())
+                    (set! last-val v))))
+              ordered))
+          s22 (assert-true &s21
+            all-ordered
+            "Stress test: all elements popped in descending order")
+          ;; Test 10: Duplicate Priorities
+          _g (do
+            (PriorityQueue.clear! &pq)
+            (PriorityQueue.push! &pq 5 &IntRef.>)
+            (PriorityQueue.push! &pq 5 &IntRef.>)
+            (PriorityQueue.push! &pq 5 &IntRef.>))
+          s23 (assert-equal &s22
+            3
+            (PriorityQueue.length &pq)
+            "Duplicate priorities length correct")
+          s24 (assert-true &s23
+            (PriorityQueue.valid? &pq &IntRef.>)
+            "Duplicate priorities heap valid")
+          _h (PriorityQueue.pop! &pq &IntRef.>)
+          s25 (assert-equal &s24
+            2
+            (PriorityQueue.length &pq)
+            "Popped duplicate correctly")]
+      s25)))

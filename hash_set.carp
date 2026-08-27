@@ -1,0 +1,99 @@
+(use Map)
+(use Maybe)
+
+(doc HashSet
+  "is a robust, generic hash set implemented as a thin wrapper around a Map.
+
+### Design Philosophy
+The HashSet module provides a first-class set abstraction:
+1. **Inspection**: `contains?`, `length`, and `empty?`.
+2. **Mutation**: `insert!`, `remove!`, and `clear!` for in-place modifications.
+3. **Algebraic**: `union`, `intersection`, `difference`, and `symmetric-difference` for set logic.")
+(deftype (HashSet t) [data (Map t ())])
+
+(defmodule HashSet
+  (doc new "creates a new, empty HashSet.")
+  (defn new [] (HashSet.init (Map.create)))
+
+  (doc zero "returns an empty HashSet instance.")
+  (defn zero [] (HashSet.new))
+  (implements zero HashSet.zero)
+
+  (doc length "returns the number of elements in the set.")
+  (defn length [s] (Map.length (HashSet.data s)))
+
+  (doc empty? "checks whether the set is empty.")
+  (defn empty? [s] (Map.empty? (HashSet.data s)))
+  (implements empty? HashSet.empty?)
+
+  (doc insert! "adds an element reference to the set.")
+  (defn insert! [s el] (Map.put! (HashSet.data s) el &()))
+
+  (doc remove! "removes an element reference from the set.")
+  (defn remove! [s el]
+    (let [d @(HashSet.data s)] (HashSet.set-data! s (Map.remove d el))))
+
+  (doc contains? "checks if the set contains the given element reference.")
+  (defn contains? [s el] (Map.contains? (HashSet.data s) el))
+
+  (doc clear! "removes all elements from the set.")
+  (defn clear! [s] (HashSet.set-data! s (Map.create)))
+
+  (doc copy "returns a copy of the set.")
+  (defn copy [s] (HashSet.init (Map.copy (HashSet.data s))))
+  (implements copy HashSet.copy)
+
+  (doc to-array "returns the elements of the set as an array.")
+  (defn to-array [s] (Map.keys (HashSet.data s)))
+
+  (doc from-array "creates a set from an array of elements.")
+  (defn from-array [arr]
+    (let-do [s (HashSet.new)]
+      (for [i 0 (Array.length arr)]
+        (HashSet.insert! &s (Array.unsafe-nth arr i)))
+      s))
+
+  (doc union "returns a new set containing elements from both a and b.")
+  (defn union [a b]
+    (Map.kv-reduce
+      &(fn [acc k _] (do (HashSet.insert! &acc k) acc))
+      (HashSet.copy a)
+      (HashSet.data b)))
+
+  (doc intersection
+    "returns a new set containing only elements present in both a and b.")
+  (defn intersection [a b]
+    (Map.kv-reduce
+      &(fn [acc k _]
+        (if (HashSet.contains? b k) (do (HashSet.insert! &acc k) acc) acc))
+      (HashSet.new)
+      (HashSet.data a)))
+
+  (doc difference "returns a new set containing elements in a but not in b.")
+  (defn difference [a b]
+    (Map.kv-reduce
+      &(fn [acc k _]
+        (if (HashSet.contains? b k) acc (do (HashSet.insert! &acc k) acc)))
+      (HashSet.new)
+      (HashSet.data a)))
+
+  (doc symmetric-difference
+    "returns a new set containing elements in either a or b, but not both.")
+  (defn symmetric-difference [a b]
+    (let [diff-a (HashSet.difference a b)
+          diff-b (HashSet.difference b a)]
+      (HashSet.union &diff-a &diff-b)))
+
+  (doc = "checks if two sets are identical.")
+  (defn = [a b]
+    (if (not (= (HashSet.length a) (HashSet.length b)))
+      false
+      (Map.kv-reduce
+        &(fn [acc k _] (if acc (HashSet.contains? b k) false))
+        true
+        (HashSet.data a))))
+  (implements = HashSet.=)
+
+  (doc str "returns a string representation of the set.")
+  (defn str [s] (str* "HashSet(" (Array.str &(HashSet.to-array s)) ")"))
+  (implements str HashSet.str))

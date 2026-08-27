@@ -1,0 +1,123 @@
+(load "Test.carp")
+(use Test)
+(load "stable_pool.carp")
+(use StablePool)
+(use Handle)
+(use Maybe)
+(use Uint64)
+(use Uint32)
+
+(deftest stable-pool-test
+  (let [p (the (StablePool Int) (StablePool.new))
+        state (Test.State.init 0 0)]
+    (do
+      (set! state
+            (assert-true &state (StablePool.empty? &p) "Pool is empty initially"))
+      (set! state
+            (assert-equal &state
+              0
+              (StablePool.length &p)
+              "Pool length is 0 initially"))
+
+      ;; Allocation
+      (let [h1 (the (Handle Int) (StablePool.alloc! &p 100))]
+        (do
+          (set! state
+                (assert-false &state
+                  (StablePool.empty? &p)
+                  "Pool is not empty after alloc"))
+          (set! state
+                (assert-equal &state
+                  1
+                  (StablePool.length &p)
+                  "Pool length is 1 after alloc"))
+          (set! state
+                (assert-true &state
+                  (Maybe.= &(Maybe.Just 100) &(StablePool.get &p &h1))
+                  "Get returns correct value"))
+
+          ;; Reuse & Generation bump
+          (StablePool.free! &p &h1)
+          (set! state
+                (assert-true &state
+                  (StablePool.empty? &p)
+                  "Pool is empty after free"))
+          (set! state
+                (assert-true &state
+                  (Maybe.nothing? &(StablePool.get &p &h1))
+                  "Stale handle returns Nothing"))
+
+          (let [h2 (the (Handle Int) (StablePool.alloc! &p 200))]
+            (do
+              (set! state
+                    (assert-true &state
+                      (Uint64.= (Handle.index &h1) (Handle.index &h2))
+                      "Slot index reused"))
+              (set! state
+                    (assert-true &state
+                      (Uint32.> (Handle.generation &h2) (Handle.generation &h1))
+                      "Generation bumped after reuse"))
+              (set! state
+                    (assert-true &state
+                      (Maybe.= &(Maybe.Just 200) &(StablePool.get &p &h2))
+                      "New handle returns correct value"))))
+
+          ;; Growth
+          (let [h3 (the (Handle Int) (StablePool.alloc! &p 3))
+                h4 (the (Handle Int) (StablePool.alloc! &p 4))
+                h5 (the (Handle Int) (StablePool.alloc! &p 5))
+                h6 (the (Handle Int) (StablePool.alloc! &p 6))
+                h7 (the (Handle Int) (StablePool.alloc! &p 7))
+                h8 (the (Handle Int) (StablePool.alloc! &p 8))
+                h9 (the (Handle Int) (StablePool.alloc! &p 9))
+                h10 (the (Handle Int) (StablePool.alloc! &p 10))]
+            (do
+              (set! state
+                    (assert-true &state
+                      (> (StablePool.capacity &p) 8)
+                      "Pool grows automatically"))
+              (set! state
+                    (assert-equal &state
+                      9
+                      (StablePool.length &p)
+                      "Length is correct after growth"))))))
+
+      ;; Clear!
+      (StablePool.clear! &p)
+      (set! state
+            (assert-true &state (StablePool.empty? &p) "Pool empty after clear!"))
+
+      ;; Functional
+      (let [p2 (the (StablePool Int) (StablePool.new))]
+        (do
+          (let [ha (the (Handle Int) (StablePool.alloc! &p2 10))
+                hb (the (Handle Int) (StablePool.alloc! &p2 20))
+                hc (the (Handle Int) (StablePool.alloc! &p2 30))]
+            (do
+              (set! state
+                    (assert-equal &state
+                      60
+                      (StablePool.reduce &(fn [acc x] (+ acc @x)) 0 &p2)
+                      "Reduce works"))
+              (set! state
+                    (assert-true &state
+                      (StablePool.any? &(fn [x] (= @x 20)) &p2)
+                      "any? works (positive)"))
+              (set! state
+                    (assert-false &state
+                      (StablePool.any? &(fn [x] (= @x 40)) &p2)
+                      "any? works (negative)"))
+              (set! state
+                    (assert-true &state
+                      (StablePool.all? &(fn [x] (> @x 0)) &p2)
+                      "all? works (positive)"))
+              (set! state
+                    (assert-false &state
+                      (StablePool.all? &(fn [x] (> @x 15)) &p2)
+                      "all? works (negative)"))
+              (set! state
+                    (assert-true &state
+                      (StablePool.contains? &p2 &20)
+                      "contains? works"))))))
+
+      state)))

@@ -1,0 +1,142 @@
+(use Array)
+(use Int)
+(use Debug)
+
+(doc RingBuf "is a generic fixed-capacity circular buffer.")
+(deftype (RingBuf t)
+  [data (Array t)
+   head-idx Int
+   tail-idx Int
+   n-elements Int
+   max-cap Int])
+
+(defmodule RingBuf
+  (doc new
+    "creates a new RingBuf with a fixed capacity. Requires a `default-val` to initialize the underlying array; this value is an initialization artifact and is never exposed by the API (all access is bounds-checked against the logical length). Capacity must be greater than 0.")
+  (defn new [capacity default-val]
+    (do
+      (assert (> capacity 0))
+      (RingBuf.init (Array.replicate capacity &default-val) 0 0 0 capacity)))
+
+  (doc length "returns the number of elements currently in the buffer.")
+  (defn length [rb] @(RingBuf.n-elements rb))
+
+  (doc capacity "returns the total capacity of the buffer.")
+  (defn capacity [rb] @(RingBuf.max-cap rb))
+
+  (doc empty? "checks whether the buffer is empty.")
+  (defn empty? [rb] (Int.= @(RingBuf.n-elements rb) 0))
+
+  (doc full? "checks whether the buffer is full.")
+  (defn full? [rb] (Int.= @(RingBuf.n-elements rb) @(RingBuf.max-cap rb)))
+
+  (doc push!
+    "inserts a value into the buffer. If the buffer is full, it overwrites the oldest element and advances the head.")
+  (defn push! [rb val]
+    (let [cap @(RingBuf.max-cap rb)
+          t @(RingBuf.tail-idx rb)
+          h @(RingBuf.head-idx rb)
+          s @(RingBuf.n-elements rb)]
+      (do
+        (Array.aset! (RingBuf.data rb) t val)
+        (RingBuf.set-tail-idx! rb (Int.mod (Int.inc t) cap))
+        (if (Int.= s cap)
+          (RingBuf.set-head-idx! rb (Int.mod (Int.inc h) cap))
+          (RingBuf.set-n-elements! rb (Int.inc s))))))
+
+  (doc push-strict!
+    "inserts a value into the buffer. Fails (asserts) if the buffer is full.")
+  (defn push-strict! [rb val]
+    (do (assert (not (RingBuf.full? rb))) (RingBuf.push! rb val)))
+
+  (doc try-push!
+    "attempts to insert a value into the buffer. Returns true if successful, or false if the buffer is full (no overwrite).")
+  (defn try-push! [rb val]
+    (if (RingBuf.full? rb) false (do (RingBuf.push! rb val) true)))
+
+  (doc pop!
+    "removes and returns the oldest element from the buffer, wrapped in a Maybe.")
+  (defn pop! [rb]
+    (if (RingBuf.empty? rb)
+      (Maybe.Nothing)
+      (let [cap @(RingBuf.max-cap rb)
+            h @(RingBuf.head-idx rb)
+            s @(RingBuf.n-elements rb)
+            val @(Array.unsafe-nth (RingBuf.data rb) h)]
+        (do
+          (RingBuf.set-head-idx! rb (Int.mod (Int.inc h) cap))
+          (RingBuf.set-n-elements! rb (Int.dec s))
+          (Maybe.Just val)))))
+
+  (doc pop-back!
+    "removes and returns the newest element from the buffer, wrapped in a Maybe.")
+  (defn pop-back! [rb]
+    (if (RingBuf.empty? rb)
+      (Maybe.Nothing)
+      (let [cap @(RingBuf.max-cap rb)
+            t @(RingBuf.tail-idx rb)
+            s @(RingBuf.n-elements rb)
+            new-t (if (Int.= t 0) (Int.dec cap) (Int.dec t))
+            val @(Array.unsafe-nth (RingBuf.data rb) new-t)]
+        (do
+          (RingBuf.set-tail-idx! rb new-t)
+          (RingBuf.set-n-elements! rb (Int.dec s))
+          (Maybe.Just val)))))
+
+  (doc peek
+    "returns a copy of the oldest element in the buffer, wrapped in a Maybe.")
+  (defn peek [rb]
+    (if (RingBuf.empty? rb)
+      (Maybe.Nothing)
+      (Maybe.Just @(Array.unsafe-nth (RingBuf.data rb) @(RingBuf.head-idx rb)))))
+
+  (doc peek-back
+    "returns a copy of the newest element in the buffer, wrapped in a Maybe.")
+  (defn peek-back [rb]
+    (if (RingBuf.empty? rb)
+      (Maybe.Nothing)
+      (let [cap @(RingBuf.max-cap rb)
+            t @(RingBuf.tail-idx rb)
+            idx (if (Int.= t 0) (Int.dec cap) (Int.dec t))]
+        (Maybe.Just @(Array.unsafe-nth (RingBuf.data rb) idx)))))
+
+  (doc get
+    "returns a copy of the element at the specified relative index, wrapped in a Maybe. 0 is the oldest element.")
+  (defn get [rb idx]
+    (if (or (Int.< idx 0) (Int.>= idx @(RingBuf.n-elements rb)))
+      (Maybe.Nothing)
+      (let [cap @(RingBuf.max-cap rb)
+            h @(RingBuf.head-idx rb)
+            real-idx (Int.mod (Int.+ h idx) cap)]
+        (Maybe.Just @(Array.unsafe-nth (RingBuf.data rb) real-idx)))))
+
+  (doc clear!
+    "removes all elements from the buffer. Note: this does not zero out the underlying data array; owned values will persist until the RingBuf is dropped or overwritten.")
+  (defn clear! [rb]
+    (do
+      (RingBuf.set-head-idx! rb 0)
+      (RingBuf.set-tail-idx! rb 0)
+      (RingBuf.set-n-elements! rb 0)))
+
+  (doc to-array
+    "returns a new array containing the elements of the buffer in order.")
+  (defn to-array [rb]
+    (let [s @(RingBuf.n-elements rb)
+          cap @(RingBuf.max-cap rb)
+          h @(RingBuf.head-idx rb)
+          arr []]
+      (do
+        (for [i 0 s]
+          (Array.push-back! &arr
+                            @(Array.unsafe-nth (RingBuf.data rb)
+                                               (Int.mod (Int.+ h i) cap))))
+        arr)))
+
+  (doc foreach
+    "calls a function for each element reference in the buffer, in order.")
+  (defn foreach [rb f]
+    (let [s @(RingBuf.n-elements rb)
+          cap @(RingBuf.max-cap rb)
+          h @(RingBuf.head-idx rb)]
+      (for [i 0 s]
+        (~f (Array.unsafe-nth (RingBuf.data rb) (Int.mod (Int.+ h i) cap)))))))

@@ -1,0 +1,65 @@
+(use Uint64)
+(use Uint32)
+
+(doc Handle "is a generational handle used to safely reference data in a pool. 
+It contains a `Uint64` index into the storage array and a `Uint32` generation 
+counter to detect stale references.
+
+### Identity vs Validity
+A Handle represents a stable **identity**. Whether that identity is currently 
+**valid** (i.e., refers to an alive object) depends on the state of the pool 
+it originated from. This module handles identity and the \"null\" state.")
+(deftype (Handle t) [index-raw Uint64
+                     generation-raw Uint32])
+
+(defmodule Handle
+  (doc null "returns a canonical null handle (Uint64.MAX index, generation 0).")
+  (defn null [] (Handle.init Uint64.MAX (zero)))
+
+  (doc null? "checks if the handle is the canonical null handle.")
+  (defn null? [h]
+    (and
+      (Uint64.= @(Handle.index-raw h) Uint64.MAX)
+      (Uint32.= @(Handle.generation-raw h) (zero))))
+
+  (doc not-null? "checks if the handle is not the canonical null handle.
+Note: This only checks for the \"not null\" state. Pool-specific validation 
+requires comparing this handle's generation against the pool's slot generation.")
+  (defn not-null? [h] (not (Handle.null? h)))
+
+  (doc index "returns the logical index stored in the handle.")
+  (defn index [h] @(Handle.index-raw h))
+
+  (doc generation "returns the generation counter stored in the handle.")
+  (defn generation [h] @(Handle.generation-raw h))
+
+  (doc equal?
+    "checks if two handles are identical (both index and generation match).")
+  (defn equal? [a b]
+    (and
+      (Uint64.= @(Handle.index-raw a) @(Handle.index-raw b))
+      (Uint32.= @(Handle.generation-raw a) @(Handle.generation-raw b))))
+  (implements = Handle.equal?)
+
+  (doc less-than?
+    "provides a stable ordering for handles based on index then generation.")
+  (defn less-than? [a b]
+    (if (Uint64.< @(Handle.index-raw a) @(Handle.index-raw b))
+      true
+      (if (Uint64.> @(Handle.index-raw a) @(Handle.index-raw b))
+        false
+        (Uint32.< @(Handle.generation-raw a) @(Handle.generation-raw b)))))
+  (implements < Handle.less-than?)
+
+  (doc str
+    "returns a compact string representation of the handle for debugging: h(idx:gen).")
+  (defn str [h]
+    (if (Handle.null? h)
+      @"h(null)"
+      ;; We use to-long for display; this is safe for any reasonable pool size.
+      (str* "h("
+            (Long.str (Uint64.to-long @(Handle.index-raw h)))
+            ":"
+            (Long.str (Uint32.to-long @(Handle.generation-raw h)))
+            ")")))
+  (implements str Handle.str))

@@ -1,0 +1,88 @@
+(load "Test.carp")
+(use Test)
+(load "ringbuf.carp")
+(use RingBuf)
+
+(deftest ringbuf-test
+  (let [rb (RingBuf.new 3 0)]
+    (let [s1 (assert-equal ringbuf-test 0 (RingBuf.length &rb) "initially empty")
+          s2 (assert-true &s1 (RingBuf.empty? &rb) "empty? is true")
+          s3 (do
+            (RingBuf.push! &rb 1)
+            (RingBuf.push! &rb 2)
+            (assert-equal &s2 2 (RingBuf.length &rb) "length after 2 pushes"))
+          s4 (do
+            (RingBuf.push! &rb 3)
+            (assert-true &s3 (RingBuf.full? &rb) "full after 3 pushes"))
+          s5 (do
+            (RingBuf.push! &rb 4)
+            (assert-equal &s4
+              3
+              (RingBuf.length &rb)
+              "length remains capacity after overflow"))
+          p1 (RingBuf.pop! &rb)
+          s6 (assert-equal &s5
+            &(Maybe.Just 2)
+            &p1
+            "first element after overflow")
+          p2 (RingBuf.pop! &rb)
+          s7 (assert-equal &s6 &(Maybe.Just 3) &p2 "second element")
+          p3 (RingBuf.pop! &rb)
+          s8 (assert-equal &s7 &(Maybe.Just 4) &p3 "third element")
+          s9 (assert-true &s8 (RingBuf.empty? &rb) "empty after popping all")
+          s10 (do
+            (RingBuf.push! &rb 5)
+            (let [pk (RingBuf.peek &rb)]
+              (assert-equal &s9 &(Maybe.Just 5) &pk "peek works")))
+          s11 (let [pkb (RingBuf.peek-back &rb)]
+            (assert-equal &s10 &(Maybe.Just 5) &pkb "peek-back works"))
+          s12 (do
+            (RingBuf.push! &rb 6)
+            (let [g0 (RingBuf.get &rb 0)
+                  g1 (RingBuf.get &rb 1)]
+              (let [st (assert-equal &s11 &(Maybe.Just 5) &g0 "get 0 works")]
+                (assert-equal &st &(Maybe.Just 6) &g1 "get 1 works"))))
+          s13 (let [gn1 (RingBuf.get &rb -1)
+                    g2 (RingBuf.get &rb 2)]
+            (let [st (assert-equal &s12
+                    &(Maybe.Nothing)
+                    &gn1
+                    "get -1 is Nothing")]
+              (assert-equal &st &(Maybe.Nothing) &g2 "get 2 is Nothing")))
+          pb1 (RingBuf.pop-back! &rb)
+          s14 (assert-equal &s13 &(Maybe.Just 6) &pb1 "pop-back! works")
+          s15 (assert-equal &s14 1 (RingBuf.length &rb) "length after pop-back!")
+          s16 (let [tp1 (RingBuf.try-push! &rb 7)
+                    tp2 (RingBuf.try-push! &rb 8)
+                    tp3 (RingBuf.try-push! &rb 9)]
+            (let [st (assert-true &s15 tp1 "try-push! 7 success")]
+              (let [st2 (assert-true &st tp2 "try-push! 8 success")]
+                (assert-false &st2 tp3 "try-push! 9 failure"))))
+          arr (RingBuf.to-array &rb)
+          s17 (assert-equal &s16 3 (Array.length &arr) "to-array length")
+          s18 (do
+            (RingBuf.clear! &rb)
+            (assert-true &s17 (RingBuf.empty? &rb) "empty after clear"))
+          pc (RingBuf.pop! &rb)
+          s19 (assert-equal &s18
+            &(Maybe.Nothing)
+            &pc
+            "pop! after clear is Nothing")]
+      (let [rb1 (RingBuf.new 1 0)]
+        (let [s20 (assert-equal &s19
+                0
+                (RingBuf.length &rb1)
+                "cap-1 initially empty")
+              s21 (do
+                (RingBuf.push! &rb1 10)
+                (assert-equal &s20 1 (RingBuf.length &rb1) "cap-1 length 1"))
+              s22 (do
+                (RingBuf.push! &rb1 20)
+                (let [pkc1 (RingBuf.peek &rb1)]
+                  (assert-equal &s21
+                    &(Maybe.Just 20)
+                    &pkc1
+                    "cap-1 peek 20 after overwrite")))
+              p1c1 (RingBuf.pop! &rb1)
+              s23 (assert-equal &s22 &(Maybe.Just 20) &p1c1 "cap-1 pop! 20")]
+          s23)))))

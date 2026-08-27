@@ -1,0 +1,321 @@
+(load "Test.carp")
+(use Test)
+(load "stack.carp")
+(use Stack)
+
+(deftest stack-test
+  (let [s (Stack.new)
+        state (Test.State.init 0 0)
+        s1 (assert-true &state (Stack.empty? &s) "Stack is empty initially")
+        s2 (assert-equal &s1 0 (Stack.length &s) "Stack length is 0 initially")
+        _p1 (Stack.push! &s 10)
+        s3 (assert-false &s2 (Stack.empty? &s) "Stack is not empty after push")
+        s4 (assert-equal &s3 1 (Stack.length &s) "Stack length is 1 after push")
+        s5 (assert-equal &s4
+          &(Maybe.Just 10)
+          &(Stack.peek &s)
+          "Peek returns the correct value")
+        _p2 (Stack.push! &s 20)
+        s6 (assert-equal &s5
+          2
+          (Stack.length &s)
+          "Stack length is 2 after second push")
+        s7 (assert-equal &s6
+          &(Maybe.Just 20)
+          &(Stack.peek &s)
+          "Peek returns the latest value")
+        val1 (Stack.pop! &s)
+        s8 (assert-equal &s7
+          &(Maybe.Just 20)
+          &val1
+          "Pop returns the latest value")
+        s9 (assert-equal &s8 1 (Stack.length &s) "Stack length is 1 after pop")
+        val2 (Stack.pop! &s)
+        s10 (assert-equal &s9
+          &(Maybe.Just 10)
+          &val2
+          "Pop returns the remaining value")
+        s11 (assert-true &s10 (Stack.empty? &s) "Stack is empty after all pops")
+        val3 (Stack.pop! &s)
+        s12 (assert-equal &s11
+          &(Maybe.Nothing)
+          &val3
+          "Pop on empty stack returns Nothing")
+        s13 (assert-equal &s12
+          &(Maybe.Nothing)
+          &(Stack.peek &s)
+          "Peek on empty stack returns Nothing")
+        _p3 (Stack.push! &s 100)
+        _cl1 (Stack.clear! &s)
+        s14 (assert-true &s13 (Stack.empty? &s) "Stack.clear! works")
+        _p4 (Stack.push! &s 1)
+        s_copy (Stack.copy &s)
+        _p5 (Stack.push! &s 2)
+        s15 (assert-equal &s14
+          1
+          (Stack.length &s_copy)
+          "Stack.copy is independent (length)")
+        s16 (assert-equal &s15
+          &(Maybe.Just 1)
+          &(Stack.peek &s_copy)
+          "Stack.copy has correct data")
+        sf (Stack.from-array [10 20 30])
+        s17 (assert-equal &s16 3 (Stack.length &sf) "Stack.from-array works")
+        arr (Stack.to-array &sf)
+        s18 (assert-equal &s17
+          3
+          (Array.length &arr)
+          "Stack.to-array works (length)")
+        s19 (assert-equal &s18
+          30
+          @(Array.unsafe-nth &arr 2)
+          "Stack.to-array works (data)")
+        _sw1 (Stack.swap! &sf)
+        s20 (assert-equal &s19
+          &(Maybe.Just 20)
+          &(Stack.peek &sf)
+          "Stack.swap! works (new top)")
+        _pp1 (Stack.pop! &sf)
+        s21 (assert-equal &s20
+          &(Maybe.Just 30)
+          &(Stack.peek &sf)
+          "Stack.swap! works (new second)")
+        _dp1 (Stack.dup! &sf)
+        s22 (assert-equal &s21
+          3
+          (Stack.length &sf)
+          "Stack.dup! increases length")
+        s23 (assert-equal &s22
+          &(Maybe.Just 30)
+          &(Stack.peek &sf)
+          "Stack.dup! duplicates top")
+        _dr1 (Stack.drop! &sf)
+        s24 (assert-equal &s23
+          2
+          (Stack.length &sf)
+          "Stack.drop! decreases length")
+        s25 (assert-equal &s24
+          &(Maybe.Just 30)
+          &(Stack.peek &sf)
+          "Stack.drop! removes top")
+        sum (Stack.reduce &(fn [acc x] (+ acc @x)) 0 &sf)
+        s26 (assert-equal &s25 40 sum "Stack.reduce works (10 + 30)")
+        s_str (Stack.str &sf)
+        s27 (assert-true &s26
+          (> (String.length &s_str) 0)
+          "Stack.str returns a non-empty string")
+        s_mapped (Stack.map &(fn [x] (* @x 2)) &sf)
+        s28 (assert-equal &s27
+          2
+          (Stack.length &s_mapped)
+          "Stack.map length is correct")
+        s29 (assert-equal &s28
+          &(Maybe.Just 60)
+          &(Stack.peek &s_mapped)
+          "Stack.map values are correct")
+        s_filtered (Stack.filter &(fn [x] (> @x 15)) &sf)
+        s30 (assert-equal &s29
+          1
+          (Stack.length &s_filtered)
+          "Stack.filter length is correct")
+        s31 (assert-equal &s30
+          &(Maybe.Just 30)
+          &(Stack.peek &s_filtered)
+          "Stack.filter values are correct")
+        _cl2 (Stack.clear! &s)
+        _p6 (Stack.push! &s 1)
+        _p7 (Stack.push! &s 2)
+        _ov1 (Stack.over! &s)
+        ; [1 2 1]
+        s32 (assert-equal &s31
+          3
+          (Stack.length &s)
+          "Stack.over! increases length")
+        s33 (assert-equal &s32
+          &(Maybe.Just 1)
+          &(Stack.peek &s)
+          "Stack.over! pushes correct value")
+        _p8 (Stack.push! &s 3)
+        ; [1 2 1 3]
+        _rt1 (Stack.rot! &s)
+        ; [1 1 3 2]
+        s34 (assert-equal &s33
+          &(Maybe.Just 2)
+          &(Stack.peek &s)
+          "Stack.rot! moves correct value to top")
+        _ni1 (Stack.nip! &s)
+        ; [1 1 2]
+        s35 (assert-equal &s34 3 (Stack.length &s) "Stack.nip! decreases length")
+        s36 (assert-equal &s35
+          &(Maybe.Just 2)
+          &(Stack.peek &s)
+          "Stack.nip! leaves correct top")
+        _tk1 (Stack.tuck! &s)
+        ; [1 2 1 2]
+        s37 (assert-equal &s36
+          4
+          (Stack.length &s)
+          "Stack.tuck! increases length")
+        s38 (assert-equal &s37
+          &(Maybe.Just 2)
+          &(Stack.peek &s)
+          "Stack.tuck! top is correct")
+        _pp2 (Stack.pop! &s)
+        _pp3 (Stack.pop! &s)
+        s39 (assert-equal &s38
+          &(Maybe.Just 2)
+          &(Stack.peek &s)
+          "Stack.tuck! second is correct")
+        ptr_maybe (Stack.peek-ptr &s)
+        s40 (assert-true &s39
+          (Maybe.just? &ptr_maybe)
+          "Stack.peek-ptr returns Just")
+        _cl3 (Stack.clear! &s)
+        _p9 (Stack.push-all! &s &[100 200])
+        s41 (assert-equal &s40
+          2
+          (Stack.length &s)
+          "Stack.push-all! works (length)")
+        s42 (assert-equal &s41
+          &(Maybe.Just 200)
+          &(Stack.peek &s)
+          "Stack.push-all! works (top)")
+        s43 (assert-true &s42
+          (Stack.contains? &s &100)
+          "Stack.contains? finds element")
+        s44 (assert-false &s43
+          (Stack.contains? &s &300)
+          "Stack.contains? doesn't find missing element")
+        s45 (assert-true &s44
+          (Stack.any? &(fn [x] (= @x 200)) &s)
+          "Stack.any? works")
+        s46 (assert-true &s45
+          (Stack.all? &(fn [x] (> @x 50)) &s)
+          "Stack.all? works")
+        s47 (assert-false &s46
+          (Stack.all? &(fn [x] (> @x 150)) &s)
+          "Stack.all? works (false case)")
+        stf (Stack.from-array [100 200])
+        s48 (assert-equal &s47
+          &(Maybe.Just 100)
+          &(Stack.find &(fn [x] (= @x 100)) &stf)
+          "Stack.find works")
+        s48a (assert-equal &s48
+          &(Maybe.Nothing)
+          &(Stack.find &(fn [x] (= @x 999)) &stf)
+          "Stack.find Nothing for missing element")
+        s49 (assert-equal &s48a
+          &(Maybe.Just 0)
+          &(Stack.find-index &(fn [x] (= @x 100)) &stf)
+          "Stack.find-index works")
+        _rm1 (Stack.remove-at! &stf 0)
+        s50 (assert-equal &s49
+          1
+          (Stack.length &stf)
+          "Stack.remove-at! decreases length")
+        s51 (assert-equal &s50
+          &(Maybe.Just 200)
+          &(Stack.peek &stf)
+          "Stack.remove-at! removes correct element")
+        _p10 (Stack.push! &stf 300)
+        ; [200 300]
+        _rv1 (Stack.reverse! &stf)
+        ; [300 200]
+        s52 (assert-equal &s51
+          &(Maybe.Just 200)
+          &(Stack.peek &stf)
+          "Stack.reverse! reverses data (top)")
+        arr_rev (Stack.to-array &stf)
+        s52a (assert-equal &s52
+          300
+          @(Array.unsafe-nth &arr_rev 0)
+          "Stack.reverse! reverses data (bottom)")
+        s52b (assert-equal &s52a
+          200
+          @(Array.unsafe-nth &arr_rev 1)
+          "Stack.reverse! reverses data (top in array)")
+        ste (Stack.from-array [300 200])
+        so (Stack.from-array [400 500])
+        _ex1 (Stack.extend! &ste &so)
+        s53 (assert-equal &s52b
+          4
+          (Stack.length &ste)
+          "Stack.extend! increases length")
+        s54 (assert-equal &s53
+          &(Maybe.Just 500)
+          &(Stack.peek &ste)
+          "Stack.extend! appends elements")
+        _ex2 (Stack.extend! &ste &(Stack.new))
+        s54a (assert-equal &s54
+          4
+          (Stack.length &ste)
+          "Stack.extend! with empty stack is a no-op")
+        s55 (assert-equal &s54a
+          &(Maybe.Just 3)
+          &(Stack.top-index &ste)
+          "Stack.top-index is correct")
+        seq1 (Stack.from-array [1 2 3])
+        seq2 (Stack.from-array [1 2 3])
+        seq3 (Stack.from-array [1 2 4])
+        s56 (assert-true &s55
+          (Stack.= &seq1 &seq2)
+          "Stack.= works for equal stacks")
+        ;; Stack.new returns a polymorphic (Stack t). In a test context, the compiler
+        ;; cannot always infer the concrete type, so an explicit annotation is used.
+        s56a (assert-true &s56
+          (Stack.= &(the (Stack Int) (Stack.new)) &(Stack.new))
+          "Stack.= works for empty stacks")
+        s57 (assert-false &s56a
+          (Stack.= &seq1 &seq3)
+          "Stack.= works for unequal stacks")
+        sz (the (Stack Int) (Stack.zero))
+        s58 (assert-true &s57
+          (Stack.empty? &sz)
+          "Stack.zero returns empty stack")
+        sd (Stack.from-array [1 2 3])
+        _ (Stack.doall &(fn [x] (ignore x)) &sd)
+        s59 (assert-true &s58 true "Stack.doall compiles and runs")
+        ;; Unsafe Primitives
+        su (Stack.from-array [1 2 3])
+        _u1 (Stack.unsafe-swap! &su)
+        ; [1 3 2]
+        s60 (assert-equal &s59
+          &(Maybe.Just 2)
+          &(Stack.peek &su)
+          "unsafe-swap! works")
+        _u2 (Stack.unsafe-dup! &su)
+        ; [1 3 2 2]
+        s61 (assert-equal &s60 4 (Stack.length &su) "unsafe-dup! works")
+        _u3 (Stack.unsafe-drop! &su)
+        ; [1 3 2]
+        s62 (assert-equal &s61 3 (Stack.length &su) "unsafe-drop! works")
+        _u4 (Stack.unsafe-over! &su)
+        ; [1 3 2 3]
+        s63 (assert-equal &s62
+          &(Maybe.Just 3)
+          &(Stack.peek &su)
+          "unsafe-over! works")
+        _u5 (Stack.unsafe-rot! &su)
+        ; su was [1 3 2 3], top 3 are [3 2 3], result is [1 2 3 3]
+        s64 (assert-equal &s63
+          &(Maybe.Just 3)
+          &(Stack.peek &su)
+          "unsafe-rot! works")
+        _u6 (Stack.unsafe-nip! &su)
+        ; su was [1 2 3 3], top 2 are [3 3], swap(3,3), drop(3), result [1 2 3]
+        s65 (assert-equal &s64 3 (Stack.length &su) "unsafe-nip! works (length)")
+        s66 (assert-equal &s65
+          &(Maybe.Just 3)
+          &(Stack.peek &su)
+          "unsafe-nip! works (top)")
+        _u7 (Stack.unsafe-tuck! &su)
+        ; su was [1 2 3], result [1 3 2 3]
+        s67 (assert-equal &s66
+          4
+          (Stack.length &su)
+          "unsafe-tuck! works (length)")
+        s68 (assert-equal &s67
+          &(Maybe.Just 3)
+          &(Stack.peek &su)
+          "unsafe-tuck! works (top)")]
+    s68))

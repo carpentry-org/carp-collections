@@ -1,0 +1,135 @@
+(load "Test.carp")
+(use Test)
+(load "bitflags.carp")
+(use BitFlags)
+
+(def Read 1)
+(def Write 2)
+(def Execute 4)
+
+(deftest bitflags-test
+  (let [f (BitFlags.new 0)
+        state (Test.State.init 0 0)]
+    (do
+      (set! state
+            (assert-equal &state 0 (BitFlags.to-int &f) "Initial mask is 0"))
+      (set! state
+            (assert-true &state (BitFlags.empty? &f) "empty? works on initial"))
+
+      (BitFlags.set! &f Read)
+      (set! state
+            (assert-true &state
+              (BitFlags.contains? &f Read)
+              "contains? Read is set"))
+      (set! state
+            (assert-equal &state
+              1
+              (BitFlags.to-int &f)
+              "Mask is 1 after setting Read"))
+
+      (BitFlags.set! &f Write)
+      (set! state
+            (assert-true &state
+              (BitFlags.contains? &f Write)
+              "contains? Write is set"))
+      (set! state
+            (assert-equal &state
+              3
+              (BitFlags.to-int &f)
+              "Mask is 3 after setting Write"))
+
+      (BitFlags.unset! &f Read)
+      (set! state
+            (assert-false &state
+              (BitFlags.contains? &f Read)
+              "contains? Read is unset"))
+      (set! state
+            (assert-equal &state
+              2
+              (BitFlags.to-int &f)
+              "Mask is 2 after unsetting Read"))
+
+      (BitFlags.toggle! &f Execute)
+      (set! state
+            (assert-true &state
+              (BitFlags.contains? &f Execute)
+              "toggle! on works"))
+      (set! state
+            (assert-equal &state
+              6
+              (BitFlags.to-int &f)
+              "Mask is 6 after toggling Execute"))
+
+      (BitFlags.toggle! &f Execute)
+      (set! state
+            (assert-false &state
+              (BitFlags.contains? &f Execute)
+              "toggle! off works"))
+
+      (set! state
+            (assert-true &state
+              (BitFlags.intersects? &f (bit-or Read Write))
+              "intersects? works (positive)"))
+      (set! state
+            (assert-false &state
+              (BitFlags.intersects? &f Execute)
+              "intersects? works (negative)"))
+
+      (BitFlags.clear! &f)
+      (set! state
+            (assert-equal &state 0 (BitFlags.to-int &f) "Mask is 0 after clear!"))
+
+      ;; Functional API
+      (let [fw (BitFlags.with &f Read)
+            fwo (BitFlags.without &fw Read)]
+        (do
+          (set! state (assert-equal &state 1 (BitFlags.to-int &fw) "with works"))
+          (set! state
+                (assert-equal &state 0 (BitFlags.to-int &fwo) "without works"))))
+
+      ;; Union/Intersection
+      (let [a (BitFlags.new Read)
+            b (BitFlags.new Write)
+            u (BitFlags.union &a &b)
+            i (BitFlags.intersection &u &a)]
+        (do
+          (set! state (assert-equal &state 3 (BitFlags.to-int &u) "Union works"))
+          (set! state
+                (assert-equal &state 1 (BitFlags.to-int &i) "Intersection works"))
+          (set! state (assert-true &state (BitFlags.= &a &i) "Equality works"))))
+
+      ;; Subset
+      (let [sub (BitFlags.new Read)
+            sup (BitFlags.new (bit-or Read Write))]
+        (set! state
+              (assert-true &state (BitFlags.subset? &sub &sup) "subset? works")))
+
+      ;; Symmetric Difference
+      (let [da (BitFlags.new (bit-or Read Write))
+            db (BitFlags.new (bit-or Write Execute))
+            sd (BitFlags.symmetric-difference &da &db)]
+        (set! state
+              (assert-equal &state
+                (bit-or Read Execute)
+                (BitFlags.to-int &sd)
+                "symmetric-difference works")))
+
+      ;; Validation Helpers
+      (set! state
+            (assert-true &state
+              (BitFlags.power-of-two? 8)
+              "power-of-two? 8 is true"))
+      (set! state
+            (assert-false &state
+              (BitFlags.power-of-two? 7)
+              "power-of-two? 7 is false"))
+      (set! state
+            (assert-true &state
+              (BitFlags.single-bit? &(BitFlags.new Read))
+              "single-bit? Read is true"))
+      (set! state
+            (assert-false &state
+              (BitFlags.single-bit? &(BitFlags.new (bit-or Read Write)))
+              "single-bit? Read|Write is false"))
+
+      state)))

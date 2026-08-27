@@ -1,0 +1,231 @@
+(use Array)
+
+(doc PriorityQueue "is a generic Priority Queue implemented as a Binary Heap.")
+(deftype (PriorityQueue t) [data (Array t)])
+
+(defmodule PriorityQueue
+  (defn- bubble-up [arr idx cmp]
+    (let [curr idx
+          running true]
+      (while (and running (> curr 0))
+        (let [parent-idx (/ (dec curr) 2)]
+          (if (~cmp (Array.unsafe-nth arr curr)
+                    (Array.unsafe-nth arr parent-idx))
+            (do (Array.swap! arr curr parent-idx) (set! curr parent-idx))
+            (set! running false))))))
+
+  (defn- bubble-down [arr idx cmp]
+    (let [len (Array.length arr)
+          curr idx
+          running true]
+      (while running
+        (let [left (inc (* curr 2))
+              right (+ (* curr 2) 2)
+              largest curr]
+          (do
+            (when (and (< left len)
+                       (~cmp (Array.unsafe-nth arr left)
+                             (Array.unsafe-nth arr largest)))
+              (set! largest left))
+            (when (and (< right len)
+                       (~cmp (Array.unsafe-nth arr right)
+                             (Array.unsafe-nth arr largest)))
+              (set! largest right))
+            (if (not (= largest curr))
+              (do (Array.swap! arr curr largest) (set! curr largest))
+              (set! running false)))))))
+
+  (defn- repair! [arr idx cmp]
+    (let [len (Array.length arr)]
+      (if (and (>= idx 0) (< idx len))
+        (do (bubble-up arr idx cmp) (bubble-down arr idx cmp))
+        ())))
+
+  (doc new "creates a new, empty Priority Queue.")
+  (defn new [] (PriorityQueue.init []))
+
+  (doc rebuild!
+    "restores the heap invariant in O(n) time. Useful if the underlying array was modified manually.")
+  (defn rebuild! [pq cmp]
+    (let [arr (PriorityQueue.data pq)
+          len (Array.length arr)]
+      (for [i (dec (/ len 2)) -1 -1] (bubble-down arr i cmp))))
+
+  (doc from-array "builds a Priority Queue from an existing array in O(n) time.")
+  (defn from-array [arr cmp]
+    (let [pq (PriorityQueue.init arr)] (do (rebuild! &pq cmp) pq)))
+
+  (doc length "returns the number of elements in the Priority Queue.")
+  (defn length [pq] (Array.length (PriorityQueue.data pq)))
+
+  (doc empty? "checks whether the Priority Queue is empty.")
+  (defn empty? [pq] (= (Array.length (PriorityQueue.data pq)) 0))
+  (implements empty? PriorityQueue.empty?)
+
+  (doc peek "returns a copy of the top element of the Priority Queue.")
+  (defn peek [pq]
+    (if (PriorityQueue.empty? pq)
+      (Maybe.Nothing)
+      (Maybe.Just @(Array.unsafe-nth (PriorityQueue.data pq) 0))))
+
+  (doc peek-ptr
+    "returns a reference to the top element of the Priority Queue wrapped in a Maybe.")
+  (defn peek-ptr [pq]
+    (if (PriorityQueue.empty? pq)
+      (Maybe.Nothing)
+      (Maybe.Just (Pointer.address (Array.unsafe-nth (PriorityQueue.data pq) 0)))))
+
+  (doc push!
+    "inserts a value into the Priority Queue and restores the heap property.")
+  (defn push! [pq val cmp]
+    (let [arr (PriorityQueue.data pq)]
+      (do
+        (Array.push-back! arr val)
+        (bubble-up arr (dec (Array.length arr)) cmp))))
+
+  (doc pop! "removes and returns the top element of the Priority Queue.")
+  (defn pop! [pq cmp]
+    (if (PriorityQueue.empty? pq)
+      (Maybe.Nothing)
+      (let [arr (PriorityQueue.data pq)
+            last-idx (dec (Array.length arr))
+            top @(Array.unsafe-nth arr 0)]
+        (do
+          (if (= last-idx 0)
+            (ignore (Array.pop-back! arr))
+            (do
+              ;; Replace top with the last element and sink it
+              (Array.aset! arr 0 (Array.pop-back! arr))
+              (bubble-down arr 0 cmp)))
+          (Maybe.Just top)))))
+
+  (doc pop-push!
+    "removes the top element and inserts a new one in a single O(log n) operation.")
+  (defn pop-push! [pq val cmp]
+    (if (PriorityQueue.empty? pq)
+      (do (push! pq val cmp) (Maybe.Nothing))
+      (let [arr (PriorityQueue.data pq)
+            top @(Array.unsafe-nth arr 0)]
+        (do (Array.aset! arr 0 val) (bubble-down arr 0 cmp) (Maybe.Just top)))))
+
+  (doc push-pop!
+    "conditionally inserts val, returning whichever element would be popped first.")
+  (defn push-pop! [pq val cmp]
+    (if (or (PriorityQueue.empty? pq)
+            (~cmp &val (Array.unsafe-nth (PriorityQueue.data pq) 0)))
+      val
+      (let [arr (PriorityQueue.data pq)
+            top @(Array.unsafe-nth arr 0)]
+        (do (Array.aset! arr 0 val) (bubble-down arr 0 cmp) top))))
+
+  (doc update-top!
+    "updates the top element using the function f and restores the heap property.")
+  (defn update-top! [pq f cmp]
+    (if (PriorityQueue.empty? pq)
+      ()
+      (let [arr (PriorityQueue.data pq)]
+        (do
+          (Array.aset! arr 0 (~f @(Array.unsafe-nth arr 0)))
+          (bubble-down arr 0 cmp)))))
+
+  (doc remove-at!
+    "removes an element at an arbitrary index and restores the heap property.")
+  (defn remove-at! [pq idx cmp]
+    (let [arr (PriorityQueue.data pq)
+          len (Array.length arr)]
+      (if (and (>= idx 0) (< idx len))
+        (let [last-idx (dec len)]
+          (do
+            (if (= idx last-idx)
+              (ignore (Array.pop-back! arr))
+              (do
+                (Array.aset! arr idx (Array.pop-back! arr))
+                (repair! arr idx cmp)))
+            true))
+        false)))
+
+  (doc modify-at!
+    "updates an element at an arbitrary index and restores the heap property.")
+  (defn modify-at! [pq idx f cmp]
+    (let [arr (PriorityQueue.data pq)
+          len (Array.length arr)]
+      (if (and (>= idx 0) (< idx len))
+        (do
+          (Array.aset! arr idx (~f @(Array.unsafe-nth arr idx)))
+          (repair! arr idx cmp)
+          true)
+        false)))
+
+  (doc find-index
+    "finds the index of the first element satisfying the predicate.")
+  (defn find-index [pq pred] (Array.find-index pred (PriorityQueue.data pq)))
+
+  (doc retain! "removes all elements that do not satisfy the predicate.")
+  (defn retain! [pq pred cmp]
+    (let [i 0]
+      (while (< i (PriorityQueue.length pq))
+        (if (~pred (Array.unsafe-nth (PriorityQueue.data pq) i))
+          (set! i (inc i))
+          ;; Note: remove-at! replaces element i with the last element,
+          ;; so we must re-examine index i in the next iteration.
+          (ignore (remove-at! pq i cmp))))))
+
+  (doc clear! "removes all elements from the Priority Queue.")
+  (defn clear! [pq]
+    (let [arr (PriorityQueue.data pq)]
+      (while (not (Array.empty? arr)) (ignore (Array.pop-back! arr)))))
+
+  (doc into-array "empties the Priority Queue and returns its data as an array. 
+NOTE: This currently clones the array and then clears the queue.")
+  (defn into-array [pq]
+    (let [arr @(PriorityQueue.data &pq)] (do (clear! &pq) arr)))
+
+  (doc into-sorted-array
+    "consumes the Priority Queue and returns its elements as a sorted array (Heapsort).")
+  (defn into-sorted-array [pq cmp]
+    (let [res []
+          len (PriorityQueue.length &pq)]
+      (do
+        (for [i 0 len]
+          (match (pop! &pq cmp)
+            (Maybe.Just val) (Array.push-back! &res val)
+            (Maybe.Nothing) ()))
+        res)))
+
+  (doc append! "merges another Priority Queue into this one and re-heapifies.")
+  (defn append! [pq other cmp]
+    (let [arr (PriorityQueue.data pq)
+          other-arr (PriorityQueue.data other)]
+      (do
+        (for [i 0 (Array.length other-arr)]
+          (Array.push-back! arr @(Array.unsafe-nth other-arr i)))
+        (rebuild! pq cmp))))
+
+  (doc copy "returns a deep copy of the Priority Queue.")
+  (defn copy [pq] (PriorityQueue.init @(PriorityQueue.data pq)))
+  (implements copy PriorityQueue.copy)
+
+  (doc str "returns a string representation of the Priority Queue.")
+  (defn str [pq] (str* "PriorityQueue(" (Array.str (PriorityQueue.data pq)) ")"))
+  (implements str PriorityQueue.str)
+
+  (doc valid? "checks if the heap property is currently maintained.")
+  (defn valid? [pq cmp]
+    (let [arr (PriorityQueue.data pq)
+          len (Array.length arr)
+          ok true]
+      (do
+        (for [i 0 len]
+          (let [left (inc (* i 2))
+                right (+ (* i 2) 2)]
+            (do
+              (when (and (< left len)
+                         (~cmp (Array.unsafe-nth arr left)
+                               (Array.unsafe-nth arr i)))
+                (set! ok false))
+              (when (and (< right len)
+                         (~cmp (Array.unsafe-nth arr right)
+                               (Array.unsafe-nth arr i)))
+                (set! ok false))
+              (when (not ok) (break)))))
+        ok))))

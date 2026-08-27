@@ -1,0 +1,269 @@
+(use Array)
+(use Uint64)
+
+(doc BitSet "is a dynamic growable bitset backed by an array of `Uint64` words.
+It provides extremely compact storage for bit flags and fast set operations.")
+(deftype BitSet [words (Array Uint64)])
+
+(defmodule BitSet
+  (doc new "creates a new, empty BitSet.")
+  (defn new [] (BitSet.init []))
+
+  (doc with-capacity
+    "creates a new BitSet with space pre-allocated for at least `n` bits.")
+  (defn with-capacity [n]
+    (let [num-words (/ (+ n 63) 64)
+          arr (Array.allocate num-words)]
+      (do
+        (for [i 0 num-words] (Array.aset-uninitialized! &arr i (zero)))
+        (BitSet.init arr))))
+
+  (doc copy "returns a deep copy of the BitSet.")
+  (defn copy [bs] (BitSet.init (Array.copy (BitSet.words bs))))
+  (implements copy BitSet.copy)
+
+  (defn- ensure-capacity! [bs word-idx]
+    (let [words (BitSet.words bs)]
+      (while (<= (Array.length words) word-idx) (Array.push-back! words (zero)))))
+
+  (doc add! "sets the bit at the specified index to 1. $O(1)$ amortized.")
+  (defn add! [bs id]
+    (let [word-idx (/ id 64)
+          bit-offset (mod id 64)
+          shift (Uint64.from-long (Long.from-int bit-offset))
+          mask (bit-shift-left (Uint64.from-long 1l) shift)]
+      (do
+        (BitSet.ensure-capacity! bs word-idx)
+        (let [words (BitSet.words bs)
+              word (Array.unsafe-nth words word-idx)]
+          (Array.aset! words word-idx (bit-or @word mask))))))
+
+  (doc remove! "sets the bit at the specified index to 0. $O(1)$ complexity.")
+  (defn remove! [bs id]
+    (let [word-idx (/ id 64)
+          bit-offset (mod id 64)
+          shift (Uint64.from-long (Long.from-int bit-offset))
+          mask (bit-not (bit-shift-left (Uint64.from-long 1l) shift))
+          words (BitSet.words bs)]
+      (when (< word-idx (Array.length words))
+        (let [word (Array.unsafe-nth words word-idx)]
+          (Array.aset! words word-idx (bit-and @word mask))))))
+
+  (doc contains?
+    "checks if the bit at the specified index is set to 1. $O(1)$ complexity.")
+  (defn contains? [bs id]
+    (let [word-idx (/ id 64)
+          bit-offset (mod id 64)
+          shift (Uint64.from-long (Long.from-int bit-offset))
+          mask (bit-shift-left (Uint64.from-long 1l) shift)
+          words (BitSet.words bs)]
+      (if (< word-idx (Array.length words))
+        (let [word @(Array.unsafe-nth words word-idx)]
+          (not (Uint64.= (bit-and word mask) (zero))))
+        false)))
+
+  (doc toggle! "flips the bit at the specified index. $O(1)$ amortized.")
+  (defn toggle! [bs id]
+    (let [word-idx (/ id 64)
+          bit-offset (mod id 64)
+          shift (Uint64.from-long (Long.from-int bit-offset))
+          mask (bit-shift-left (Uint64.from-long 1l) shift)]
+      (do
+        (BitSet.ensure-capacity! bs word-idx)
+        (let [words (BitSet.words bs)
+              word (Array.unsafe-nth words word-idx)]
+          (Array.aset! words word-idx (bit-xor @word mask))))))
+
+  (doc clear! "resets all bits to 0. $O(n)$ complexity.")
+  (defn clear! [bs]
+    (let [words (BitSet.words bs)
+          len (Array.length words)]
+      (for [i 0 len] (Array.aset! words i (zero)))))
+
+  (doc empty?
+    "checks if the bitset has no bits set. $O(n)$ complexity (early exit).")
+  (defn empty? [bs]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          res true]
+      (do
+        (for [i 0 len]
+          (unless (Uint64.= @(Array.unsafe-nth words i) (zero))
+            (do (set! res false) (break))))
+        res)))
+  (implements empty? BitSet.empty?)
+
+  (doc count
+    "returns the number of set bits (population count). $O(n)$ complexity.")
+  (defn count [bs]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          total 0]
+      (do
+        (for [i 0 len]
+          (let [w @(Array.unsafe-nth words i)]
+            (unless (Uint64.= w (zero))
+              (let [v1 w
+                    v2 (Uint64.- v1
+                                 (bit-and
+                                   (bit-shift-right v1 (Uint64.from-long 1l))
+                                   (Uint64.from-long 6148914691236517205l)))
+                    v3 (Uint64.+
+                      (bit-and v2 (Uint64.from-long 3689348814741910323l))
+                      (bit-and
+                        (bit-shift-right v2 (Uint64.from-long 2l))
+                        (Uint64.from-long 3689348814741910323l)))
+                    v4 (bit-and
+                      (Uint64.+ v3 (bit-shift-right v3 (Uint64.from-long 4l)))
+                      (Uint64.from-long 1085102592571150095l))
+                    v5 (Uint64.* v4 (Uint64.from-long 72340172838076673l))
+                    c (Long.to-int
+                      (Uint64.to-long
+                        (bit-shift-right v5 (Uint64.from-long 56l))))]
+                (set! total (+ total c))))))
+        total)))
+
+  (doc for-each-set "iterates over all indices of set bits in the bitset. 
+Complexity is currently $O(64 * words)$, which may be slow for very sparse sets.")
+  (defn for-each-set [f bs]
+    (let [words (BitSet.words bs)
+          len (Array.length words)]
+      (for [i 0 len]
+        (let [w @(Array.unsafe-nth words i)]
+          (unless (Uint64.= w (zero))
+            (for [b 0 64]
+              (let [shift (Uint64.from-long (Long.from-int b))
+                    mask (bit-shift-left (Uint64.from-long 1l) shift)]
+                (unless (Uint64.= (bit-and w mask) (zero))
+                  (let [idx (+ (* i 64) b)] (~f &idx))))))))))
+
+  (doc equals? "checks if two bitsets represent the same set of bits.
+Handles cases where one bitset has more trailing zero words than the other.")
+  (defn equals? [a b]
+    (let [wa (BitSet.words a)
+          wb (BitSet.words b)
+          la (Array.length wa)
+          lb (Array.length wb)
+          min-l (if (< la lb) la lb)
+          res true]
+      (do
+        (for [i 0 min-l]
+          (unless (Uint64.= @(Array.unsafe-nth wa i) @(Array.unsafe-nth wb i))
+            (do (set! res false) (break))))
+        (when res
+          (if (> la lb)
+            (for [i lb la]
+              (unless (Uint64.= @(Array.unsafe-nth wa i) (zero))
+                (do (set! res false) (break))))
+            (when (< la lb)
+              (for [i la lb]
+                (unless (Uint64.= @(Array.unsafe-nth wb i) (zero))
+                  (do (set! res false) (break)))))))
+        res)))
+  (implements = BitSet.equals?)
+
+  (doc union!
+    "performs an in-place union with another BitSet. $O(n)$ complexity.")
+  (defn union! [bs other]
+    (let [other-words (BitSet.words other)
+          other-len (Array.length other-words)]
+      (when (> other-len 0)
+        (do
+          (BitSet.ensure-capacity! bs (dec other-len))
+          (let [words (BitSet.words bs)]
+            (for [i 0 other-len]
+              (let [w1 @(Array.unsafe-nth words i)
+                    w2 @(Array.unsafe-nth other-words i)]
+                (Array.aset! words i (bit-or w1 w2)))))))))
+
+  (doc intersection!
+    "performs an in-place intersection with another BitSet. $O(n)$ complexity.")
+  (defn intersection! [bs other]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          other-words (BitSet.words other)
+          other-len (Array.length other-words)]
+      (for [i 0 len]
+        (let [w1 @(Array.unsafe-nth words i)
+              w2 (if (< i other-len) @(Array.unsafe-nth other-words i) (zero))]
+          (Array.aset! words i (bit-and w1 w2))))))
+
+  (doc difference!
+    "performs an in-place difference (A - B) with another BitSet. $O(n)$ complexity.")
+  (defn difference! [bs other]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          other-words (BitSet.words other)
+          other-len (Array.length other-words)]
+      (for [i 0 (if (< len other-len) len other-len)]
+        (let [w1 @(Array.unsafe-nth words i)
+              w2 @(Array.unsafe-nth other-words i)]
+          (Array.aset! words i (bit-and w1 (bit-not w2)))))))
+
+  (doc symmetric-difference!
+    "performs an in-place symmetric difference (A ^ B) with another BitSet. $O(n)$ complexity.")
+  (defn symmetric-difference! [bs other]
+    (let [other-words (BitSet.words other)
+          other-len (Array.length other-words)]
+      (when (> other-len 0)
+        (do
+          (BitSet.ensure-capacity! bs (dec other-len))
+          (let [words (BitSet.words bs)]
+            (for [i 0 other-len]
+              (let [w1 @(Array.unsafe-nth words i)
+                    w2 @(Array.unsafe-nth other-words i)]
+                (Array.aset! words i (bit-xor w1 w2)))))))))
+
+  (doc subset?
+    "checks if this bitset is a subset of another. $O(n)$ complexity (early exit).")
+  (defn subset? [bs other]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          other-words (BitSet.words other)
+          other-len (Array.length other-words)
+          res true]
+      (do
+        (for [i 0 len]
+          (let [w1 @(Array.unsafe-nth words i)
+                w2 (if (< i other-len) @(Array.unsafe-nth other-words i) (zero))]
+            (unless (Uint64.= (bit-and w1 w2) w1) (do (set! res false) (break)))))
+        res)))
+
+  (doc intersects?
+    "checks if this bitset and another have any common bits. $O(n)$ complexity (early exit).")
+  (defn intersects? [bs other]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          other-words (BitSet.words other)
+          other-len (Array.length other-words)
+          res false]
+      (do
+        (for [i 0 (if (< len other-len) len other-len)]
+          (let [w1 @(Array.unsafe-nth words i)
+                w2 @(Array.unsafe-nth other-words i)]
+            (unless (Uint64.= (bit-and w1 w2) (zero))
+              (do (set! res true) (break)))))
+        res)))
+
+  (doc shrink-to-fit! "removes trailing zero words to minimize memory usage.")
+  (defn shrink-to-fit! [bs]
+    (let [words (BitSet.words bs)
+          len (Array.length words)
+          last-idx -1]
+      (do
+        (for [i (dec len) -1 -1]
+          (unless (Uint64.= @(Array.unsafe-nth words i) (zero))
+            (do (set! last-idx i) (break))))
+        (if (= last-idx -1)
+          (BitSet.set-words! bs [])
+          (while (> (Array.length (BitSet.words bs)) (inc last-idx))
+            (ignore (Array.pop-back! (BitSet.words bs))))))))
+
+  (doc str "returns a string representation of the BitSet's active metadata.")
+  (defn str [bs]
+    (str* "BitSet(count: "
+          (Int.str (BitSet.count bs))
+          ", words: "
+          (Int.str (Array.length (BitSet.words bs)))
+          ")"))
+  (implements str BitSet.str))

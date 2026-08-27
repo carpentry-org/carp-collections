@@ -1,0 +1,180 @@
+(load "Test.carp")
+(use Test)
+(load "bitset.carp")
+(use BitSet)
+
+(deftest bitset-test
+  (let [bs (BitSet.new)
+        state (Test.State.init 0 0)]
+    (do
+      ;; Basic set/check
+      (BitSet.add! &bs 10)
+      (BitSet.add! &bs 100)
+      (set! state (assert-true &state (BitSet.contains? &bs 10) "Bit 10 is set"))
+      (set! state
+            (assert-true &state (BitSet.contains? &bs 100) "Bit 100 is set"))
+      (set! state
+            (assert-false &state (BitSet.contains? &bs 50) "Bit 50 is not set"))
+      (set! state (assert-equal &state 2 (BitSet.count &bs) "Count is 2"))
+      (set! state
+            (assert-false &state (BitSet.empty? &bs) "BitSet is not empty"))
+
+      ;; Toggle
+      (BitSet.toggle! &bs 50)
+      (set! state
+            (assert-true &state
+              (BitSet.contains? &bs 50)
+              "Bit 50 set after toggle"))
+      (BitSet.toggle! &bs 10)
+      (set! state
+            (assert-false &state
+              (BitSet.contains? &bs 10)
+              "Bit 10 unset after toggle"))
+      (set! state (assert-equal &state 2 (BitSet.count &bs) "Count is still 2"))
+
+      ;; Remove
+      (BitSet.remove! &bs 100)
+      (set! state
+            (assert-false &state (BitSet.contains? &bs 100) "Bit 100 removed"))
+      (set! state (assert-equal &state 1 (BitSet.count &bs) "Count is 1"))
+
+      ;; Iteration
+      (let [sum 0]
+        (do
+          (BitSet.clear! &bs)
+          (BitSet.add! &bs 1)
+          (BitSet.add! &bs 3)
+          (BitSet.add! &bs 5)
+          (let [sum-ptr (Pointer.address &sum)]
+            (BitSet.for-each-set
+              &(fn [idx]
+                (Pointer.set sum-ptr (+ (Pointer.to-value sum-ptr) @idx)))
+              &bs))
+          (set! state (assert-equal &state 9 sum "for-each-set works"))))
+
+      ;; Copy and Equals
+      (let [bs_copy (copy &bs)]
+        (do
+          (set! state
+                (assert-true &state (= &bs &bs_copy) "Copy is equal to original"))
+          (BitSet.add! &bs_copy 10)
+          (set! state
+                (assert-false &state
+                  (= &bs &bs_copy)
+                  "Modified copy is not equal to original"))
+
+          ;; Semantic equality with different capacities
+          (let [bs_large (BitSet.with-capacity 200)]
+            (do
+              (BitSet.add! &bs_large 1)
+              (BitSet.add! &bs_large 3)
+              (BitSet.add! &bs_large 5)
+              (set! state
+                    (assert-true &state
+                      (= &bs &bs_large)
+                      "Semantic equality handles different capacities"))))))
+
+      ;; Set Algebra
+      (let [bs1 (BitSet.new)
+            bs2 (BitSet.new)]
+        (do
+          (BitSet.add! &bs1 1)
+          (BitSet.add! &bs1 2)
+          (BitSet.add! &bs2 2)
+          (BitSet.add! &bs2 3)
+
+          ;; Subset and Intersects
+          (set! state
+                (assert-true &state
+                  (BitSet.intersects? &bs1 &bs2)
+                  "bs1 intersects bs2"))
+          (let [bs3 (BitSet.new)]
+            (do
+              (BitSet.add! &bs3 1)
+              (set! state
+                    (assert-true &state
+                      (BitSet.subset? &bs3 &bs1)
+                      "bs3 is subset of bs1"))
+              (set! state
+                    (assert-false &state
+                      (BitSet.subset? &bs1 &bs3)
+                      "bs1 is not subset of bs3"))))
+
+          ;; Union
+          (let [u (BitSet.new)]
+            (do
+              (BitSet.union! &u &bs1)
+              (BitSet.union! &u &bs2)
+              (set! state
+                    (assert-equal &state 3 (BitSet.count &u) "Union works"))))
+
+          ;; Intersection
+          (let [i (BitSet.new)]
+            (do
+              (BitSet.union! &i &bs1)
+              (BitSet.intersection! &i &bs2)
+              (set! state
+                    (assert-equal &state
+                      1
+                      (BitSet.count &i)
+                      "Intersection works"))))
+
+          ;; Difference
+          (let [d (BitSet.new)]
+            (do
+              (BitSet.union! &d &bs1)
+              (BitSet.difference! &d &bs2)
+              (set! state
+                    (assert-equal &state 1 (BitSet.count &d) "Difference works"))))
+
+          ;; Symmetric Difference
+          (let [sd (BitSet.new)]
+            (do
+              (BitSet.union! &sd &bs1)
+              (BitSet.symmetric-difference! &sd &bs2)
+              (set! state
+                    (assert-equal &state
+                      2
+                      (BitSet.count &sd)
+                      "Symmetric Difference works"))
+              (set! state
+                    (assert-true &state (BitSet.contains? &sd 1) "SD contains 1"))
+              (set! state
+                    (assert-false &state
+                      (BitSet.contains? &sd 2)
+                      "SD doesn't contain 2"))
+              (set! state
+                    (assert-true &state (BitSet.contains? &sd 3) "SD contains 3"))))))
+
+      ;; Capacity logic
+      (let [bsc (BitSet.with-capacity 64)]
+        (do
+          (set! state
+                (assert-equal &state
+                  1
+                  (Array.length (BitSet.words &bsc))
+                  "with-capacity 64 allocates 1 word"))
+          (BitSet.add! &bsc 100)
+          (set! state
+                (assert-equal &state
+                  2
+                  (Array.length (BitSet.words &bsc))
+                  "Grew to 2 words for bit 100"))))
+
+      ;; Shrink to fit
+      (do
+        (BitSet.clear! &bs)
+        (BitSet.add! &bs 1000)
+        (set! state
+              (assert-true &state
+                (> (Array.length (BitSet.words &bs)) 10)
+                "Words array is large"))
+        (BitSet.remove! &bs 1000)
+        (BitSet.shrink-to-fit! &bs)
+        (set! state
+              (assert-equal &state
+                0
+                (Array.length (BitSet.words &bs))
+                "Words array shrunk to 0 after clear")))
+
+      state)))

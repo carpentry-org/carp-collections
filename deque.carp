@@ -1,0 +1,422 @@
+(use Array)
+(use Maybe)
+
+(doc Deque
+  "is a robust, generic double-ended queue implemented as a dynamic ring buffer.
+
+### Design Philosophy
+The Deque module follows a systems-oriented design:
+1. **Inspection/Query**: Operations like `peek-front`, `peek-back`, and `nth` return `Maybe` types.
+2. **Mutation with Invariants**: Primitives like `push-front!` and `pop-back!` enforce invariants and will call `panic!` on violation.
+3. **Fast Path**: `unsafe-` variants are provided for performance-critical code where the caller guarantees invariants are met.
+4. **Reference Semantics**: Higher-order APIs (`doall`, `reduce`, etc.) pass references to actual elements in storage to avoid unnecessary copies and support mutation (where safe).
+5. **Performance**: Key operations like rotation are $O(1)$, and retention is $O(n)$.")
+(deftype (Deque t) [data (Array t)
+                    head Int
+                    len Int
+                    cap Int])
+
+(defmodule Deque
+  (defn- panic! [msg] (do (IO.println &(str* "Error: " msg)) (System.exit 1)))
+
+  ;; --- Unsafe Primitives (Fast Path) ---
+
+  (doc unsafe-nth-ref
+    "returns a reference to the element at the logical index without bounds checking.")
+  (defn unsafe-nth-ref [dq idx]
+    (let [h @(Deque.head dq)
+          c @(Deque.cap dq)]
+      (Array.unsafe-nth (Deque.data dq) (Int.mod (+ h idx) c))))
+
+  (doc unsafe-nth
+    "returns a copy of the element at the logical index without bounds checking.")
+  (defn unsafe-nth [dq idx] @(Deque.unsafe-nth-ref dq idx))
+
+  (doc unsafe-aset!
+    "sets the element at the logical index without bounds checking.")
+  (defn unsafe-aset! [dq idx val]
+    (let [h @(Deque.head dq)
+          c @(Deque.cap dq)]
+      (Array.aset! (Deque.data dq) (Int.mod (+ h idx) c) val)))
+
+  (doc unsafe-pop-front!
+    "removes and returns the front element without bounds checking.")
+  (defn unsafe-pop-front! [dq]
+    (let [h @(Deque.head dq)
+          l @(Deque.len dq)
+          c @(Deque.cap dq)
+          val @(Array.unsafe-nth (Deque.data dq) h)]
+      (do
+        (Deque.set-head! dq (Int.mod (inc h) c))
+        (Deque.set-len! dq (dec l))
+        val)))
+
+  (doc unsafe-pop-back!
+    "removes and returns the back element without bounds checking.")
+  (defn unsafe-pop-back! [dq]
+    (let [l @(Deque.len dq)
+          new-l (dec l)
+          val @(Deque.unsafe-nth-ref dq new-l)]
+      (do (Deque.set-len! dq new-l) val)))
+
+  (doc unsafe-peek-front
+    "returns a copy of the front element without bounds checking.")
+  (defn unsafe-peek-front [dq]
+    @(Array.unsafe-nth (Deque.data dq) @(Deque.head dq)))
+
+  (doc unsafe-peek-back
+    "returns a copy of the back element without bounds checking.")
+  (defn unsafe-peek-back [dq] @(Deque.unsafe-nth-ref dq (dec @(Deque.len dq))))
+
+  ;; --- Core API ---
+
+  (doc with-capacity "creates a new Deque with the specified initial capacity.
+If capacity is 0, a default capacity of 8 is used.")
+  (defn with-capacity [capacity]
+    (let [cap (if (= capacity 0) 8 capacity)]
+      (Deque.init (Array.allocate cap) 0 0 cap)))
+
+  (doc new "creates a new, empty Deque with an initial capacity of 8.")
+  (defn new [] (Deque.with-capacity 8))
+
+  (doc zero "returns an empty deque.")
+  (defn zero [] (Deque.new))
+  (implements zero Deque.zero)
+
+  (doc length "returns the number of elements in the deque.")
+  (defn length [dq] @(Deque.len dq))
+
+  (doc empty? "checks whether the deque is empty.")
+  (defn empty? [dq] (= @(Deque.len dq) 0))
+  (implements empty? Deque.empty?)
+
+  (doc capacity "returns the current capacity of the underlying buffer.")
+  (defn capacity [dq] @(Deque.cap dq))
+
+  (doc reserve! "ensures the deque has at least the specified capacity. 
+If new-cap is greater than current capacity, the buffer is reallocated and unrolled.")
+  (defn reserve! [dq new-cap]
+    (let [old-cap @(Deque.cap dq)]
+      (when (> new-cap old-cap)
+        (let [l @(Deque.len dq)
+              h @(Deque.head dq)
+              old-data @(Deque.data dq)
+              ;; Take ownership of old array to ensure it's freed
+              new-data (Array.allocate new-cap)]
+          (do
+            (for [i 0 l]
+              (let [old-idx (Int.mod (+ h i) old-cap)]
+                (Array.aset-uninitialized! &new-data
+                                           i
+                                           @(Array.unsafe-nth &old-data old-idx))))
+            (Deque.set-data! dq new-data)
+            (Deque.set-head! dq 0)
+            (Deque.set-cap! dq new-cap)
+            (ignore old-data))))))
+
+  (defn- grow! [dq]
+    (let [old-cap @(Deque.cap dq)
+          new-cap (if (= old-cap 0) 8 (* old-cap 2))]
+      (Deque.reserve! dq new-cap)))
+
+  (doc shrink-to-fit!
+    "shrinks the capacity of the deque to match its current length, clamping at a minimum of 8.")
+  (defn shrink-to-fit! [dq]
+    (let [l @(Deque.len dq)
+          c @(Deque.cap dq)
+          target-cap (if (< l 8) 8 l)]
+      (when (< target-cap c)
+        (let [h @(Deque.head dq)
+              old-data @(Deque.data dq)
+              new-data (Array.allocate target-cap)]
+          (do
+            (for [i 0 l]
+              (let [old-idx (Int.mod (+ h i) c)]
+                (Array.aset-uninitialized! &new-data
+                                           i
+                                           @(Array.unsafe-nth &old-data old-idx))))
+            (Deque.set-data! dq new-data)
+            (Deque.set-head! dq 0)
+            (Deque.set-cap! dq target-cap)
+            (ignore old-data))))))
+
+  (doc push-back! "adds an element to the back of the deque.")
+  (defn push-back! [dq val]
+    (do
+      (when (= @(Deque.len dq) @(Deque.cap dq)) (Deque.grow! dq))
+      (let [h @(Deque.head dq)
+            l @(Deque.len dq)
+            c @(Deque.cap dq)
+            idx (Int.mod (+ h l) c)]
+        (do (Array.aset! (Deque.data dq) idx val) (Deque.set-len! dq (inc l))))))
+
+  (doc push-front! "adds an element to the front of the deque.")
+  (defn push-front! [dq val]
+    (do
+      (when (= @(Deque.len dq) @(Deque.cap dq)) (Deque.grow! dq))
+      (let [h @(Deque.head dq)
+            l @(Deque.len dq)
+            c @(Deque.cap dq)
+            new-h (if (= h 0) (dec c) (dec h))]
+        (do
+          (Array.aset! (Deque.data dq) new-h val)
+          (Deque.set-head! dq new-h)
+          (Deque.set-len! dq (inc l))))))
+
+  (doc pop-front! "removes and returns the front element wrapped in a Maybe.")
+  (defn pop-front! [dq]
+    (if (Deque.empty? dq)
+      (Maybe.Nothing)
+      (Maybe.Just (Deque.unsafe-pop-front! dq))))
+
+  (doc pop-back! "removes and returns the back element wrapped in a Maybe.")
+  (defn pop-back! [dq]
+    (if (Deque.empty? dq)
+      (Maybe.Nothing)
+      (Maybe.Just (Deque.unsafe-pop-back! dq))))
+
+  (doc peek-front "returns a copy of the front element wrapped in a Maybe.")
+  (defn peek-front [dq]
+    (if (Deque.empty? dq)
+      (Maybe.Nothing)
+      (Maybe.Just (Deque.unsafe-peek-front dq))))
+
+  (doc peek-back "returns a copy of the back element wrapped in a Maybe.")
+  (defn peek-back [dq]
+    (if (Deque.empty? dq)
+      (Maybe.Nothing)
+      (Maybe.Just (Deque.unsafe-peek-back dq))))
+
+  (doc nth
+    "returns a copy of the element at the logical index wrapped in a Maybe.")
+  (defn nth [dq idx]
+    (if (or (< idx 0) (>= idx @(Deque.len dq)))
+      (Maybe.Nothing)
+      (Maybe.Just (Deque.unsafe-nth dq idx))))
+
+  (doc clear! "removes all elements from the deque. 
+Note: Capacity is retained, but elements are not explicitly dropped. 
+Owned values in the retained segments will persist until the Deque is dropped or overwritten.")
+  (defn clear! [dq] (do (Deque.set-head! dq 0) (Deque.set-len! dq 0)))
+
+  (doc copy
+    "returns a copy of the deque. The copy will be normalized (head at 0) and its capacity will match its length (zero spare capacity).")
+  (defn copy [dq]
+    (let [l @(Deque.len dq)
+          new-data (Array.allocate l)
+          old-data (Deque.data dq)
+          h @(Deque.head dq)
+          c @(Deque.cap dq)]
+      (do
+        (for [i 0 l]
+          (let [idx (Int.mod (+ h i) c)]
+            (Array.aset-uninitialized! &new-data
+                                       i
+                                       @(Array.unsafe-nth old-data idx))))
+        (Deque.init new-data 0 l l))))
+  (implements copy Deque.copy)
+
+  (doc from-array "creates a deque by taking ownership of the provided array.
+The resulting deque will have zero initial spare capacity. The input array should not be reused.")
+  (defn from-array [arr] (let [l (Array.length &arr)] (Deque.init arr 0 l l)))
+
+  (doc to-array "returns a copy of the deque as a contiguous array.")
+  (defn to-array [dq]
+    (let [l @(Deque.len dq)
+          arr (Array.allocate l)
+          d (Deque.data dq)
+          h @(Deque.head dq)
+          c @(Deque.cap dq)]
+      (do
+        (for [i 0 l]
+          (let [idx (Int.mod (+ h i) c)]
+            (Array.aset-uninitialized! &arr i @(Array.unsafe-nth d idx))))
+        arr)))
+
+  (doc remove-at!
+    "removes the element at the specified index. Optimized to shift the smaller segment.")
+  (defn remove-at! [dq idx]
+    (let [l @(Deque.len dq)]
+      (if (or (< idx 0) (>= idx l))
+        (Deque.panic! "Deque.remove-at! index out of bounds")
+        (let [h @(Deque.head dq)
+              c @(Deque.cap dq)
+              data (Deque.data dq)]
+          (if (< idx (/ l 2))
+            ;; Shift front segment right
+            (do
+              (for [i (dec idx) -1 -1]
+                (let [src (Int.mod (+ h i) c)
+                      dst (Int.mod (+ h (inc i)) c)]
+                  (Array.aset! data dst @(Array.unsafe-nth data src))))
+              (Deque.set-head! dq (Int.mod (inc h) c))
+              (Deque.set-len! dq (dec l)))
+            ;; Shift back segment left
+            (do
+              (for [i (inc idx) l]
+                (let [src (Int.mod (+ h i) c)
+                      dst (Int.mod (+ h (dec i)) c)]
+                  (Array.aset! data dst @(Array.unsafe-nth data src))))
+              (Deque.set-len! dq (dec l))))))))
+
+  (doc reverse! "reverses the deque in place.")
+  (defn reverse! [dq]
+    (let [l @(Deque.len dq)
+          h @(Deque.head dq)
+          c @(Deque.cap dq)
+          data (Deque.data dq)
+          i 0
+          j (dec l)]
+      ;; When len = 0, j = -1 and the loop condition (< 0 -1) is immediately false.
+      (while (< i j)
+        (let [idx-i (Int.mod (+ h i) c)
+              idx-j (Int.mod (+ h j) c)]
+          (do (Array.swap! data idx-i idx-j) (set! i (inc i)) (set! j (dec j)))))))
+
+  (doc rotate-left!
+    "rotates elements to the left by n positions. O(1) complexity. n must be non-negative.")
+  (defn rotate-left! [dq n]
+    (let [l @(Deque.len dq)]
+      (when (> l 0)
+        (let [steps (Int.mod n l)
+              h @(Deque.head dq)
+              c @(Deque.cap dq)]
+          (Deque.set-head! dq (Int.mod (+ h steps) c))))))
+
+  (doc rotate-right!
+    "rotates elements to the right by n positions. O(1) complexity. n must be non-negative.")
+  (defn rotate-right! [dq n]
+    (let [l @(Deque.len dq)]
+      (when (> l 0)
+        (let [steps (Int.mod n l)
+              h @(Deque.head dq)
+              c @(Deque.cap dq)]
+          (Deque.set-head! dq (Int.mod (- (+ h c) steps) c))))))
+
+  (doc swap!
+    "swaps elements at logical indices i and j. Panics on out of bounds.")
+  (defn swap! [dq i j]
+    (let [l @(Deque.len dq)]
+      (if (or (< i 0) (>= i l) (< j 0) (>= j l))
+        (Deque.panic! "Deque.swap! index out of bounds")
+        (let [h @(Deque.head dq)
+              c @(Deque.cap dq)
+              idx-i (Int.mod (+ h i) c)
+              idx-j (Int.mod (+ h j) c)]
+          (Array.swap! (Deque.data dq) idx-i idx-j)))))
+
+  (doc extend! "pushes all elements from another deque onto this deque.")
+  (defn extend! [dq other]
+    (let [l @(Deque.len other)]
+      (for [i 0 l] (Deque.push-back! dq (Deque.unsafe-nth other i)))))
+
+  (doc back-index
+    "returns the logical index of the back element wrapped in a Maybe.")
+  (defn back-index [dq]
+    (let [len @(Deque.len dq)]
+      (if (= len 0) (Maybe.Nothing) (Maybe.Just (dec len)))))
+
+  (doc = "checks if two deques are equal.")
+  (defn = [a b]
+    (if (not (= @(Deque.len a) @(Deque.len b)))
+      false
+      (let [l @(Deque.len a)
+            res true]
+        (do
+          (for [i 0 l]
+            (when (not (= (Deque.unsafe-nth a i) (Deque.unsafe-nth b i)))
+              (do (set! res false) (break))))
+          res))))
+  (implements = Deque.=)
+
+  (doc doall
+    "iterates over the deque and calls function f for each element reference.")
+  (defn doall [f dq]
+    (let [l @(Deque.len dq)] (for [i 0 l] (~f (Deque.unsafe-nth-ref dq i)))))
+
+  (doc map
+    "transforms the deque by applying function f to each element, returning a new deque. This operation allocates a temporary array.")
+  (defn map [f dq] (Deque.from-array (Array.copy-map f &(Deque.to-array dq))))
+
+  (doc filter
+    "returns a new deque containing elements that satisfy the predicate f. This operation allocates a temporary array.")
+  (defn filter [f dq]
+    (Deque.from-array (Array.copy-filter f &(Deque.to-array dq))))
+
+  (doc reduce
+    "reduces the deque to a single value using function f and initial value acc. f receives acc and a reference to the element.")
+  (defn reduce [f acc dq]
+    (let [l @(Deque.len dq)
+          res acc]
+      (do (for [i 0 l] (set! res (~f res (Deque.unsafe-nth-ref dq i)))) res)))
+
+  (doc any? "checks if any element satisfies the predicate f.")
+  (defn any? [f dq]
+    (let [l @(Deque.len dq)
+          res false]
+      (do
+        (for [i 0 l]
+          (when (~f (Deque.unsafe-nth-ref dq i)) (do (set! res true) (break))))
+        res)))
+
+  (doc all? "checks if all elements satisfy the predicate f.")
+  (defn all? [f dq]
+    (let [l @(Deque.len dq)
+          res true]
+      (do
+        (for [i 0 l]
+          (when (not (~f (Deque.unsafe-nth-ref dq i)))
+            (do (set! res false) (break))))
+        res)))
+
+  (doc contains? "checks if the deque contains the element el.")
+  (defn contains? [dq el]
+    (let [l @(Deque.len dq)
+          res false]
+      (do
+        (for [i 0 l]
+          (when (= @(Deque.unsafe-nth-ref dq i) @el)
+            (do (set! res true) (break))))
+        res)))
+
+  (doc find-index
+    "finds the logical index of the first element satisfying the predicate f.")
+  (defn find-index [f dq]
+    (let [l @(Deque.len dq)
+          res (Maybe.Nothing)]
+      (do
+        (for [i 0 l]
+          (when (~f (Deque.unsafe-nth-ref dq i))
+            (do (set! res (Maybe.Just i)) (break))))
+        res)))
+
+  (doc find
+    "finds the first element satisfying the predicate f and returns a copy wrapped in a Maybe.")
+  (defn find [f dq]
+    (let [l @(Deque.len dq)
+          res (Maybe.Nothing)]
+      (do
+        (for [i 0 l]
+          (let [r (Deque.unsafe-nth-ref dq i)]
+            (when (~f r) (do (set! res (Maybe.Just @r)) (break)))))
+        res)))
+
+  (doc retain!
+    "removes all elements from the deque that do not satisfy the predicate f. O(n) complexity.")
+  (defn retain! [f dq]
+    (let [l @(Deque.len dq)
+          write-idx 0]
+      (do
+        (for [read-idx 0 l]
+          (let [r (Deque.unsafe-nth-ref dq read-idx)]
+            (when (~f r)
+              (do
+                (when (not (= read-idx write-idx))
+                  (Deque.unsafe-aset! dq write-idx @r))
+                (set! write-idx (inc write-idx))))))
+        (Deque.set-len! dq write-idx))))
+
+  (doc str
+    "returns a string representation of the deque. Performs an O(n) allocation.")
+  (defn str [dq] (str* "Deque(" (Array.str &(Deque.to-array dq)) ")"))
+  (implements str Deque.str))

@@ -1,0 +1,245 @@
+(load "handle.carp")
+
+(use Handle)
+(use Uint64)
+(use Uint32)
+(use Array)
+(use Maybe)
+
+(definterface count (Fn [a] Int))
+
+(doc Slot "represents a single storage cell in a StablePool. 
+It tracks its current generation and an optional value.")
+(deftype (Slot a) [gen Uint32
+                   data (Maybe a)])
+
+(doc StablePool "is a generational object pool providing $O(1)$ allocation and 
+stable references via generational handles.
+
+### Identity vs Validity
+StablePool uses `carp-handle` to provide stable references. A handle is valid 
+only if the pool hasn't reused its slot for a newer object.
+
+### Generation Wraparound
+Generations use a `Uint32`. Upon overflow (~4 billion reuses), an old handle 
+could theoretically resolve to a new object. This is considered acceptable risk 
+for systems-grade performance.
+
+### Performance
+Allocation and deallocation are $O(1)$ amortized. Access via handle is $O(1)$.
+Iteration is $O(N)$ where N is the total capacity.")
+(deftype (StablePool a) [slots (Array (Slot a))
+                         free-list (Array Int)])
+
+(defmodule StablePool
+  (defn- panic! [msg] (do (IO.println &(str* "Error: " msg)) (System.exit 1)))
+
+  (defn- get-slot-unsafe [p idx] (Array.unsafe-nth (StablePool.slots p) idx))
+
+  (doc with-capacity
+    "creates a new StablePool with the specified initial capacity.")
+  (defn with-capacity [cap]
+    (let [c (if (< cap 1) 1 cap)
+          slots (Array.allocate c)
+          free []]
+      (do
+        ;; Initialize all slots as empty with generation 0
+        (for [i 0 c]
+          (Array.aset-uninitialized! &slots i (Slot.init (zero) (Maybe.Nothing))))
+        ;; Initialize free list with all indices (in reverse for natural stack order)
+        (for [i (dec c) -1 -1] (set! free (Array.push-back free i)))
+        (StablePool.init slots free))))
+
+  (doc new "creates a new StablePool with an initial capacity of 8.")
+  (defn new [] (StablePool.with-capacity 8))
+
+  (doc zero "returns an empty StablePool instance.")
+  (defn zero [] (StablePool.new))
+  (implements zero StablePool.zero)
+
+  (doc capacity
+    "returns the total number of slots (active + free). $O(1)$ complexity.")
+  (defn capacity [p] (Array.length (StablePool.slots p)))
+
+  (doc length
+    "returns the number of active elements in the pool. $O(1)$ complexity.")
+  (defn length [p]
+    (- (StablePool.capacity p) (Array.length (StablePool.free-list p))))
+  (implements count StablePool.length)
+
+  (doc empty? "checks if the pool has no active elements.")
+  (defn empty? [p] (= (StablePool.length p) 0))
+  (implements empty? StablePool.empty?)
+
+  (defn- grow! [p]
+    (let [old-cap (StablePool.capacity p)
+          new-cap (* old-cap 2)
+          slots (StablePool.slots p)]
+      (do
+        ;; 1. Grow the slots array
+        (for [i old-cap new-cap]
+          (Array.push-back! slots (Slot.init (zero) (Maybe.Nothing))))
+        ;; 2. Add new indices to free list
+        (let [free (StablePool.free-list p)]
+          (for [i (dec new-cap) (dec old-cap) -1] (Array.push-back! free i))))))
+
+  (doc alloc!
+    "allocates a slot for the value and returns a stable Handle. $O(1)$ amortized.
+Panics if internal free-list invariants are violated.")
+  (defn alloc! [p val]
+    (do
+      (when (Array.empty? (StablePool.free-list p)) (StablePool.grow! p))
+      (let [free (StablePool.free-list p)
+            idx (Array.pop-back! free)
+            slot (StablePool.get-slot-unsafe p idx)]
+        (if (Maybe.nothing? (Slot.data slot))
+          (let [gen @(Slot.gen slot)]
+            (do
+              (Slot.set-data! slot (Maybe.Just val))
+              (Handle.init (Uint64.from-long (Long.from-int idx)) gen)))
+          (do
+            (StablePool.panic!
+              "StablePool.alloc!: Internal invariant violated (popped occupied slot from free-list)")
+            (Handle.null))))))
+
+  (doc free!
+    "marks the slot referred to by the handle as empty and increments its generation. 
+Does nothing if the handle is stale, null, or out of bounds. $O(1)$ complexity.")
+  (defn free! [p h]
+    (let [idx (Long.to-int (Uint64.to-long (Handle.index h)))
+          slots (StablePool.slots p)]
+      (if (or (< idx 0) (>= idx (Array.length slots)))
+        ()
+        ;; Out of bounds is a no-op for safety
+        (let [slot (StablePool.get-slot-unsafe p idx)]
+          (if (and (Maybe.just? (Slot.data slot))
+                   (Uint32.= @(Slot.gen slot) (Handle.generation h)))
+            (do
+              (Slot.set-data! slot (Maybe.Nothing))
+              (Slot.set-gen! slot
+                             (Uint32.+ @(Slot.gen slot) (Uint32.from-long 1l)))
+              (Array.push-back! (StablePool.free-list p) idx))
+            ())))))
+  ;; stale handle, double free, or invalid handle
+
+  (doc get
+    "returns a copy of the element wrapped in a Maybe. Returns Nothing if the handle is stale or invalid.")
+  (defn get [p h]
+    (let [idx (Long.to-int (Uint64.to-long (Handle.index h)))
+          slots (StablePool.slots p)]
+      (if (or (< idx 0) (>= idx (Array.length slots)))
+        (Maybe.Nothing)
+        (let [slot (StablePool.get-slot-unsafe p idx)]
+          (if (and (Maybe.just? (Slot.data slot))
+                   (Uint32.= @(Slot.gen slot) (Handle.generation h)))
+            @(Slot.data slot)
+            (Maybe.Nothing))))))
+
+  (doc get-ptr "returns a pointer to the element wrapped in a Maybe. 
+Returns Nothing if the handle is stale or invalid.
+### Safety
+The returned pointer is only valid as long as:
+1. The handle remains valid (the object has not been freed or reused).
+2. The pool has not grown (reallocated its internal buffer).
+3. The pool has not been cleared.")
+  (defn get-ptr [p h]
+    (let [idx (Long.to-int (Uint64.to-long (Handle.index h)))
+          slots (StablePool.slots p)]
+      (if (or (< idx 0) (>= idx (Array.length slots)))
+        (Maybe.Nothing)
+        (let [slot (StablePool.get-slot-unsafe p idx)]
+          (if (and (Maybe.just? (Slot.data slot))
+                   (Uint32.= @(Slot.gen slot) (Handle.generation h)))
+            (Maybe.Just (Maybe.unsafe-ptr (Slot.data slot)))
+            (Maybe.Nothing))))))
+
+  (doc with-ptr "executes a function f with a pointer to the pooled element.
+The function is only called if the handle h is currently valid.")
+  (defn with-ptr [p h f]
+    (match (StablePool.get-ptr p h) (Maybe.Just ptr) (~f ptr) (Maybe.Nothing) ()))
+
+  (doc valid?
+    "checks if a handle is currently valid (refers to an alive object).")
+  (defn valid? [p h] (Maybe.just? &(StablePool.get p h)))
+
+  (doc clear!
+    "removes all elements from the pool and increments all slot generations. $O(n)$ complexity.")
+  (defn clear! [p]
+    (let [slots (StablePool.slots p)
+          len (Array.length slots)]
+      (do
+        (StablePool.set-free-list! p [])
+        (let [free (StablePool.free-list p)]
+          (for [i 0 len]
+            (do
+              (let [slot (StablePool.get-slot-unsafe p i)]
+                (do
+                  (when (Maybe.just? (Slot.data slot))
+                    (do
+                      (Slot.set-data! slot (Maybe.Nothing))
+                      (Slot.set-gen! slot
+                                     (Uint32.+ @(Slot.gen slot)
+                                               (Uint32.from-long 1l)))))))
+              (Array.push-back! free i)))))))
+
+  (doc for-each "iterates over all active elements in the pool.")
+  (defn for-each [f p]
+    (let [slots (StablePool.slots p)
+          len (Array.length slots)]
+      (for [i 0 len]
+        (let [slot (Array.unsafe-nth slots i)]
+          (match-ref (Slot.data slot)
+            (Maybe.Just val) (~f val)
+            (Maybe.Nothing) ())))))
+
+  (doc str "returns a string representation of the pool's metadata.")
+  (defn str [p]
+    (str* "StablePool(len: "
+          (Int.str (StablePool.length p))
+          ", cap: "
+          (Int.str (StablePool.capacity p))
+          ")"))
+  (implements str StablePool.str)
+
+  (doc reduce "reduces the active elements in the pool to a single value.")
+  (defn reduce [f acc p]
+    (let [slots (StablePool.slots p)
+          len (Array.length slots)
+          res acc]
+      (do
+        (for [i 0 len]
+          (let [slot (Array.unsafe-nth slots i)]
+            (match-ref (Slot.data slot)
+              (Maybe.Just val) (set! res (~f res val))
+              (Maybe.Nothing) ())))
+        res)))
+
+  (doc any? "checks if any active element in the pool satisfies the predicate.")
+  (defn any? [f p]
+    (let [slots (StablePool.slots p)
+          len (Array.length slots)
+          res false]
+      (do
+        (for [i 0 len]
+          (let [slot (Array.unsafe-nth slots i)]
+            (match-ref (Slot.data slot)
+              (Maybe.Just val) (when (~f val) (do (set! res true) (break)))
+              (Maybe.Nothing) ())))
+        res)))
+
+  (doc all? "checks if all active elements in the pool satisfy the predicate.")
+  (defn all? [f p]
+    (let [slots (StablePool.slots p)
+          len (Array.length slots)
+          res true]
+      (do
+        (for [i 0 len]
+          (let [slot (Array.unsafe-nth slots i)]
+            (match-ref (Slot.data slot)
+              (Maybe.Just val) (unless (~f val) (do (set! res false) (break)))
+              (Maybe.Nothing) ())))
+        res)))
+
+  (doc contains?
+    "checks if the pool contains an element. (Debug only, O(n) complexity).")
+  (defn contains? [p el] (StablePool.any? &(fn [x] (= x el)) p)))
