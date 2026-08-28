@@ -1,0 +1,632 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="../style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/carp-collections">
+                    <img src="">
+                </a>
+                <div class="title">
+                    carp-collections
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <a href="BitFlags.html">
+                                BitFlags
+                            </a>
+                        </li>
+                        <li>
+                            <a href="BitSet.html">
+                                BitSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Deque.html">
+                                Deque
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Handle.html">
+                                Handle
+                            </a>
+                        </li>
+                        <li>
+                            <a href="HashSet.html">
+                                HashSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="PriorityQueue.html">
+                                PriorityQueue
+                            </a>
+                        </li>
+                        <li>
+                            <a href="RingBuf.html">
+                                RingBuf
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Slot.html">
+                                Slot
+                            </a>
+                        </li>
+                        <li>
+                            <a href="SparseSet.html">
+                                SparseSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="StablePool.html">
+                                StablePool
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Stack.html">
+                                Stack
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    BitSet
+                </h1>
+                <div class="module-description">
+                    <p>is a dynamic growable bitset backed by an array of <code>Uint64</code> words.
+It provides extremely compact storage for bit flags and fast set operations.</p>
+
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#add!">
+                        <h3 id="add!">
+                            add!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), Int] ())
+                    </p>
+                    <pre class="args">
+                        (add! bs id)
+                    </pre>
+                    <p class="doc">
+                        <p>sets the bit at the specified index to 1. $O(1)$ amortized.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#clear!">
+                        <h3 id="clear!">
+                            clear!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] ())
+                    </p>
+                    <pre class="args">
+                        (clear! bs)
+                    </pre>
+                    <p class="doc">
+                        <p>resets all bits to 0. $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#contains?">
+                        <h3 id="contains?">
+                            contains?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), Int] Bool)
+                    </p>
+                    <pre class="args">
+                        (contains? bs id)
+                    </pre>
+                    <p class="doc">
+                        <p>checks if the bit at the specified index is set to 1. $O(1)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#copy">
+                        <h3 id="copy">
+                            copy
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] BitSet)
+                    </p>
+                    <pre class="args">
+                        (copy bs)
+                    </pre>
+                    <p class="doc">
+                        <p>returns a deep copy of the BitSet.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#count">
+                        <h3 id="count">
+                            count
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] Int)
+                    </p>
+                    <pre class="args">
+                        (count bs)
+                    </pre>
+                    <p class="doc">
+                        <p>returns the number of set bits (population count). $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#delete">
+                        <h3 id="delete">
+                            delete
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [BitSet] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>deletes a <code>BitSet</code>. Should usually not be called manually.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#difference!">
+                        <h3 id="difference!">
+                            difference!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] ())
+                    </p>
+                    <pre class="args">
+                        (difference! bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>performs an in-place difference (A - B) with another BitSet. $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#empty?">
+                        <h3 id="empty?">
+                            empty?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] Bool)
+                    </p>
+                    <pre class="args">
+                        (empty? bs)
+                    </pre>
+                    <p class="doc">
+                        <p>checks if the bitset has no bits set. $O(n)$ complexity (early exit).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#equals?">
+                        <h3 id="equals?">
+                            equals?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (equals? a b)
+                    </pre>
+                    <p class="doc">
+                        <p>checks if two bitsets represent the same set of bits.
+Handles cases where one bitset has more trailing zero words than the other.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#for-each-set">
+                        <h3 id="for-each-set">
+                            for-each-set
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Fn [(Ref Int a)] () b) c), (Ref BitSet d)] ())
+                    </p>
+                    <pre class="args">
+                        (for-each-set f bs)
+                    </pre>
+                    <p class="doc">
+                        <p>iterates over all indices of set bits in the bitset.
+Complexity is currently $O(64 * words)$, which may be slow for very sparse sets.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#init">
+                        <h3 id="init">
+                            init
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Array Uint64)] BitSet)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>creates a <code>BitSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#intersection!">
+                        <h3 id="intersection!">
+                            intersection!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] ())
+                    </p>
+                    <pre class="args">
+                        (intersection! bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>performs an in-place intersection with another BitSet. $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#intersects?">
+                        <h3 id="intersects?">
+                            intersects?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (intersects? bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>checks if this bitset and another have any common bits. $O(n)$ complexity (early exit).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#new">
+                        <h3 id="new">
+                            new
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [] BitSet)
+                    </p>
+                    <pre class="args">
+                        (new)
+                    </pre>
+                    <p class="doc">
+                        <p>creates a new, empty BitSet.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#prn">
+                        <h3 id="prn">
+                            prn
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] String)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>converts a <code>BitSet</code> to a string.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#remove!">
+                        <h3 id="remove!">
+                            remove!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), Int] ())
+                    </p>
+                    <pre class="args">
+                        (remove! bs id)
+                    </pre>
+                    <p class="doc">
+                        <p>sets the bit at the specified index to 0. $O(1)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-words">
+                        <h3 id="set-words">
+                            set-words
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [BitSet, (Array Uint64)] BitSet)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>words</code> property of a <code>BitSet</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-words!">
+                        <h3 id="set-words!">
+                            set-words!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Array Uint64)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>words</code> property of a <code>BitSet</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#shrink-to-fit!">
+                        <h3 id="shrink-to-fit!">
+                            shrink-to-fit!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] ())
+                    </p>
+                    <pre class="args">
+                        (shrink-to-fit! bs)
+                    </pre>
+                    <p class="doc">
+                        <p>removes trailing zero words to minimize memory usage.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#str">
+                        <h3 id="str">
+                            str
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] String)
+                    </p>
+                    <pre class="args">
+                        (str bs)
+                    </pre>
+                    <p class="doc">
+                        <p>returns a string representation of the BitSet's active metadata.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#subset?">
+                        <h3 id="subset?">
+                            subset?
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] Bool)
+                    </p>
+                    <pre class="args">
+                        (subset? bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>checks if this bitset is a subset of another. $O(n)$ complexity (early exit).</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#symmetric-difference!">
+                        <h3 id="symmetric-difference!">
+                            symmetric-difference!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] ())
+                    </p>
+                    <pre class="args">
+                        (symmetric-difference! bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>performs an in-place symmetric difference (A ^ B) with another BitSet. $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#toggle!">
+                        <h3 id="toggle!">
+                            toggle!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), Int] ())
+                    </p>
+                    <pre class="args">
+                        (toggle! bs id)
+                    </pre>
+                    <p class="doc">
+                        <p>flips the bit at the specified index. $O(1)$ amortized.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#union!">
+                        <h3 id="union!">
+                            union!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a), (Ref BitSet b)] ())
+                    </p>
+                    <pre class="args">
+                        (union! bs other)
+                    </pre>
+                    <p class="doc">
+                        <p>performs an in-place union with another BitSet. $O(n)$ complexity.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-words">
+                        <h3 id="update-words">
+                            update-words
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [BitSet, (Ref (Fn [(Array Uint64)] (Array Uint64) a) b)] BitSet)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>words</code> property of a <code>BitSet</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#with-capacity">
+                        <h3 id="with-capacity">
+                            with-capacity
+                        </h3>
+                    </a>
+                    <div class="description">
+                        defn
+                    </div>
+                    <p class="sig">
+                        (Fn [Int] BitSet)
+                    </p>
+                    <pre class="args">
+                        (with-capacity n)
+                    </pre>
+                    <p class="doc">
+                        <p>creates a new BitSet with space pre-allocated for at least <code>n</code> bits.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#words">
+                        <h3 id="words">
+                            words
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref BitSet a)] (Ref (Array Uint64) a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>words</code> property of a <code>BitSet</code>.</p>
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

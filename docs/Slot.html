@@ -1,0 +1,350 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="../style.css">
+    </head>
+    <body>
+        <div class="content">
+            <div class="logo">
+                <a href="https://github.com/carpentry-org/carp-collections">
+                    <img src="">
+                </a>
+                <div class="title">
+                    carp-collections
+                </div>
+                <div class="index">
+                    <ul>
+                        <li>
+                            <a href="BitFlags.html">
+                                BitFlags
+                            </a>
+                        </li>
+                        <li>
+                            <a href="BitSet.html">
+                                BitSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Deque.html">
+                                Deque
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Handle.html">
+                                Handle
+                            </a>
+                        </li>
+                        <li>
+                            <a href="HashSet.html">
+                                HashSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="PriorityQueue.html">
+                                PriorityQueue
+                            </a>
+                        </li>
+                        <li>
+                            <a href="RingBuf.html">
+                                RingBuf
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Slot.html">
+                                Slot
+                            </a>
+                        </li>
+                        <li>
+                            <a href="SparseSet.html">
+                                SparseSet
+                            </a>
+                        </li>
+                        <li>
+                            <a href="StablePool.html">
+                                StablePool
+                            </a>
+                        </li>
+                        <li>
+                            <a href="Stack.html">
+                                Stack
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="module">
+                <h1>
+                    Slot
+                </h1>
+                <div class="module-description">
+                    <p>represents a single storage cell in a StablePool.
+It tracks its current generation and an optional value.</p>
+
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#copy">
+                        <h3 id="copy">
+                            copy
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b)] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>copies a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#data">
+                        <h3 id="data">
+                            data
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b)] (Ref (Maybe a) b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>data</code> property of a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#delete">
+                        <h3 id="delete">
+                            delete
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Slot a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>deletes a <code>Slot</code>. Should usually not be called manually.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#gen">
+                        <h3 id="gen">
+                            gen
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b)] (Ref Uint32 b))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>gets the <code>gen</code> property of a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#init">
+                        <h3 id="init">
+                            init
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [Uint32, (Maybe a)] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>creates a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#prn">
+                        <h3 id="prn">
+                            prn
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b)] String)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>converts a <code>Slot</code> to a string.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-data">
+                        <h3 id="set-data">
+                            set-data
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Slot a), (Maybe a)] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>data</code> property of a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-data!">
+                        <h3 id="set-data!">
+                            set-data!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b), (Maybe a)] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>data</code> property of a <code>Slot</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-gen">
+                        <h3 id="set-gen">
+                            set-gen
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Slot a), Uint32] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>gen</code> property of a <code>Slot</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#set-gen!">
+                        <h3 id="set-gen!">
+                            set-gen!
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b), Uint32] ())
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>sets the <code>gen</code> property of a <code>Slot</code> in place.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#str">
+                        <h3 id="str">
+                            str
+                        </h3>
+                    </a>
+                    <div class="description">
+                        template
+                    </div>
+                    <p class="sig">
+                        (Fn [(Ref (Slot a) b)] String)
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>converts a <code>Slot</code> to a string.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-data">
+                        <h3 id="update-data">
+                            update-data
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Slot a), (Ref (Fn [(Maybe a)] (Maybe a) b) c)] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>data</code> property of a <code>(Slot a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+                <div class="binder">
+                    <a class="anchor" href="#update-gen">
+                        <h3 id="update-gen">
+                            update-gen
+                        </h3>
+                    </a>
+                    <div class="description">
+                        instantiate
+                    </div>
+                    <p class="sig">
+                        (Fn [(Slot a), (Ref (Fn [Uint32] Uint32 b) c)] (Slot a))
+                    </p>
+                    <span>
+                        
+                    </span>
+                    <p class="doc">
+                        <p>updates the <code>gen</code> property of a <code>(Slot a)</code> using a function <code>f</code>.</p>
+
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

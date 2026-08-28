@@ -27,7 +27,12 @@ The HashSet module provides a first-class set abstraction:
   (implements empty? HashSet.empty?)
 
   (doc insert! "adds an element reference to the set.")
-  (defn insert! [s el] (Map.put! (HashSet.data s) el &()))
+  (defn insert! [s el]
+    ; Map.put! bumps the map length even when it replaces an existing key
+    ; (core Map.put-! increments unconditionally), so guard the insert to
+    ; keep length equal to the number of distinct elements.
+    (unless (Map.contains? (HashSet.data s) el)
+      (Map.put! (HashSet.data s) el &())))
 
   (doc remove! "removes an element reference from the set.")
   (defn remove! [s el]

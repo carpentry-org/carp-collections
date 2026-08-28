@@ -1,0 +1,112 @@
+<!DOCTYPE HTML>
+
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" href="../style.css">
+    </head>
+    <body>
+        <div class="content">
+            <a href="https://github.com/carpentry-org/carp-collections">
+                <div class="logo">
+                    <img src="" alt="Logo">
+                    <div class="index">
+                        <ul>
+                            <li>
+                                <a href="BitFlags.html">
+                                    BitFlags
+                                </a>
+                            </li>
+                            <li>
+                                <a href="BitSet.html">
+                                    BitSet
+                                </a>
+                            </li>
+                            <li>
+                                <a href="Deque.html">
+                                    Deque
+                                </a>
+                            </li>
+                            <li>
+                                <a href="Handle.html">
+                                    Handle
+                                </a>
+                            </li>
+                            <li>
+                                <a href="HashSet.html">
+                                    HashSet
+                                </a>
+                            </li>
+                            <li>
+                                <a href="PriorityQueue.html">
+                                    PriorityQueue
+                                </a>
+                            </li>
+                            <li>
+                                <a href="RingBuf.html">
+                                    RingBuf
+                                </a>
+                            </li>
+                            <li>
+                                <a href="Slot.html">
+                                    Slot
+                                </a>
+                            </li>
+                            <li>
+                                <a href="SparseSet.html">
+                                    SparseSet
+                                </a>
+                            </li>
+                            <li>
+                                <a href="StablePool.html">
+                                    StablePool
+                                </a>
+                            </li>
+                            <li>
+                                <a href="Stack.html">
+                                    Stack
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <h1>
+                        carp-collections
+                    </h1>
+                    <p>Ten container types for Carp, in one package.</p>
+<p>Load the whole suite, or any single module on its own:</p>
+<pre><code>(load &quot;git@github.com:carpentry-org/carp-collections@master&quot;)
+; or, for just one:
+(load &quot;git@github.com:carpentry-org/carp-collections@master&quot; &quot;deque.carp&quot;)
+</code></pre>
+<h3>Sequences</h3>
+<ul>
+<li><a href="./Deque.html"><code>Deque</code></a> — double-ended queue over a growable ring buffer, amortized <code>O(1)</code> at both ends</li>
+<li><a href="./RingBuf.html"><code>RingBuf</code></a> — fixed-capacity circular buffer</li>
+<li><a href="./Stack.html"><code>Stack</code></a> — LIFO stack over an array</li>
+</ul>
+<h3>Sets and maps</h3>
+<ul>
+<li><a href="./HashSet.html"><code>HashSet</code></a> — set built on <code>Map</code>, with union, intersection and difference</li>
+<li><a href="./BitSet.html"><code>BitSet</code></a> — dynamic bitset over <code>Uint64</code> words</li>
+<li><a href="./BitFlags.html"><code>BitFlags</code></a> — type-safe integer bitmask, plus the <code>bitflags</code> macro</li>
+<li><a href="./SparseSet.html"><code>SparseSet</code></a> — integer ids to values, <code>O(1)</code> and contiguous for iteration</li>
+</ul>
+<h3>Pools and handles</h3>
+<ul>
+<li><a href="./Handle.html"><code>Handle</code></a> — generational handle into a pool</li>
+<li><a href="./StablePool.html"><code>StablePool</code></a> — generational object pool, <code>O(1)</code> alloc and free, handles stay valid</li>
+<li><a href="./Slot.html"><code>Slot</code></a> — a single <code>StablePool</code> cell</li>
+</ul>
+<h3>Priority</h3>
+<ul>
+<li><a href="./PriorityQueue.html"><code>PriorityQueue</code></a> — binary-heap priority queue</li>
+</ul>
+
+                </div>
+            </a>
+        </div>
+    </body>
+</html>
