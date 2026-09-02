@@ -2,6 +2,8 @@
 (use Uint32)
 (use Maybe)
 
+(definterface count (Fn [a] Int))
+
 (doc SparseSet
   "is a high-performance collection that maps integer IDs to values.
 It provides $O(1)$ lookup, insertion, and deletion while maintaining contiguous 

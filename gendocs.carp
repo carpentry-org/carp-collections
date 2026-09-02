@@ -1,0 +1,50 @@
+(load "carp-collections.carp")
+
+(Project.config "title" "carp-collections")
+(Project.config "docs-directory" "./docs/")
+(Project.config "docs-logo" "")
+(Project.config "docs-url" "https://github.com/carpentry-org/carp-collections")
+(Project.config "docs-styling" "../style.css")
+(Project.config "docs-prelude" "Ten container types for Carp, in one package.
+
+Load the whole suite, or any single module on its own:
+```
+(load \"git@github.com:carpentry-org/carp-collections@master\")
+; or, for just one:
+(load \"git@github.com:carpentry-org/carp-collections@master\" \"deque.carp\")
+```
+
+### Sequences
+- [`Deque`](./Deque.html) — double-ended queue over a growable ring buffer, amortized `O(1)` at both ends
+- [`RingBuf`](./RingBuf.html) — fixed-capacity circular buffer
+- [`Stack`](./Stack.html) — LIFO stack over an array
+
+### Sets and maps
+- [`HashSet`](./HashSet.html) — set built on `Map`, with union, intersection and difference
+- [`BitSet`](./BitSet.html) — dynamic bitset over `Uint64` words
+- [`BitFlags`](./BitFlags.html) — type-safe integer bitmask, plus the `bitflags` macro
+- [`SparseSet`](./SparseSet.html) — integer ids to values, `O(1)` and contiguous for iteration
+
+### Pools and handles
+- [`Handle`](./Handle.html) — generational handle into a pool
+- [`StablePool`](./StablePool.html) — generational object pool, `O(1)` alloc and free, handles stay valid
+- [`Slot`](./Slot.html) — a single `StablePool` cell
+
+### Priority
+- [`PriorityQueue`](./PriorityQueue.html) — binary-heap priority queue")
+
+(save-docs BitFlags
+           BitSet
+           Deque
+           Handle
+           HashSet
+           PriorityQueue
+           RingBuf
+           Slot
+           SparseSet
+           StablePool
+           Stack)
+; Carp's save-docs hardcodes the index filename as <title>_index.html.
+; Rename to docs/index.html.
+(defn main []
+  (System.system "mv ./docs/carp-collections_index.html ./docs/index.html"))

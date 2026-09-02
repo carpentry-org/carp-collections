@@ -14,9 +14,23 @@ A consolidated Collections Library suite for the Carp programming language.
 - **[Stablepool](#stablepool)**: See module documentation below.
 - **[Stack](#stack)**: See module documentation below.
 
+## Installation
+
+```
+(load "git@github.com:carpentry-org/carp-collections@master")
+```
+
+That pulls in every module. A single one can be loaded on its own:
+
+```
+(load "git@github.com:carpentry-org/carp-collections@master" "deque.carp")
+```
+
 ## Examples
 
-See [examples.md](examples.md) for module usage examples.
+See [examples.md](examples.md) for module usage examples, and the
+[API documentation](https://carpentry.dev/carp-collections) for the full
+reference.
 
 ---
 
@@ -47,10 +61,8 @@ The Deque module is designed for performance-critical systems:
 
 ## Installation
 
-Add this to your project by loading `deque.carp`.
-
 ```clojure
-(load "path/to/carp-deque/deque.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "deque.carp")
 (use Deque)
 ```
 
@@ -167,10 +179,8 @@ A generic fixed-capacity circular buffer for the [Carp language](https://github.
 
 ## Installation
 
-Add this to your project by loading `ringbuf.carp`.
-
 ```clojure
-(load "path/to/carp-ringbuf/ringbuf.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "ringbuf.carp")
 (use RingBuf)
 ```
 
@@ -215,10 +225,8 @@ The SparseSet module follows the "Golden Standard" for ECS storage:
 
 ## Installation
 
-Add this to your project by loading `sparse_set.carp`.
-
 ```clojure
-(load "path/to/carp-sparseset/sparse_set.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "sparse_set.carp")
 (use SparseSet)
 ```
 
@@ -247,12 +255,12 @@ This module provides $O(1)$ allocation and deallocation of objects while providi
 
 ## Features
 
-- **Generational Safety**: Uses `carp-handle` with `Uint32` generation counters to ensure stale references are caught with zero ambiguity.
+- **Generational Safety**: Uses `Handle` with `Uint32` generation counters to ensure stale references are caught with zero ambiguity.
 - **High Performance**: $O(1)$ constant-time allocation and deallocation using an internal free-list.
 - **Memory Efficient**: Backed by a contiguous array to minimize fragmentation, with a tiered slot model that separates occupancy from generation state.
 - **Robust Invariants**: Strictly maintains length and free-list state, with program aborts for critical internal violations (e.g. double-free).
 - **Type-Safe**: Generic implementation allows pooling any Carp type.
-- **Zero Dependencies**: Pure Carp implementation requiring only `carp-handle`.
+- **Zero Dependencies**: Pure Carp implementation requiring only `handle.carp`.
 
 ## Design Philosophy
 
@@ -265,11 +273,8 @@ The StablePool is designed for foundation-grade resource management:
 
 ## Installation
 
-Add this to your project by loading `stable_pool.carp`.
-
 ```clojure
-(load "path/to/carp-handle/handle.carp")
-(load "path/to/carp-stablepool/stable_pool.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "stable_pool.carp")
 (use StablePool)
 ```
 
@@ -315,10 +320,8 @@ The Stack module is designed for systems programming and VM implementations:
 
 ## Installation
 
-Add this to your project by loading `stack.carp`.
-
 ```clojure
-(load "path/to/carp-stack/stack.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "stack.carp")
 (use Stack)
 ```
 
@@ -398,10 +401,8 @@ The HashSet module is designed to feel like a first-class collection:
 
 ## Installation
 
-Add this to your project by loading `hash_set.carp`.
-
 ```clojure
-(load "path/to/carp-hashset/hash_set.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "hash_set.carp")
 (use HashSet)
 ```
 
@@ -449,10 +450,8 @@ The Handle module solves the "Dangling Pointer" problem in a systems environment
 
 ## Installation
 
-Add this to your project by loading `handle.carp`.
-
 ```clojure
-(load "path/to/carp-handle/handle.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "handle.carp")
 (use Handle)
 ```
 
@@ -501,10 +500,8 @@ The BitFlags module is designed for performance and clarity:
 
 ## Installation
 
-Add this to your project by loading `bitflags.carp`.
-
 ```clojure
-(load "path/to/carp-bitflags/bitflags.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "bitflags.carp")
 (use BitFlags)
 ```
 
@@ -541,10 +538,8 @@ Bitsets provide extremely space-efficient storage for boolean flags and enable f
 
 ## Installation
 
-Add this to your project by loading `bitset.carp`.
-
 ```clojure
-(load "path/to/carp-bitset/bitset.carp")
+(load "git@github.com:carpentry-org/carp-collections@master" "bitset.carp")
 (use BitSet)
 ```
 
